@@ -1,0 +1,4 @@
+(executable
+ (public_name metal)
+ (name main)
+ (libraries metal))

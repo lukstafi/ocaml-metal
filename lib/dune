@@ -1,0 +1,5 @@
+; See: https://discuss.ocaml.org/t/ann-camlkit-macos-ios-gnustep-toolkit-for-ocaml/14722/10
+; dune exec bs-to-ml -- -fw Metal < data/Metal.bridgesupport > data/Metal/Metal_globals.ml
+(library
+ (name metal)
+ (libraries camlkit-base.runtime))
