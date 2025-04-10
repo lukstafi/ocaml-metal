@@ -37,11 +37,9 @@ let saxpy_kernel_source =
 let () =
   (* 1. Initialize Metal *)
   let device = Metal.Device.create_system_default () in
-  if is_nil device then failwith "Failed to create Metal device";
   Printf.printf "Metal device created successfully.\n";
 
   let command_queue = Metal.Device.new_command_queue device in
-  if is_nil command_queue then failwith "Failed to create command queue";
   Printf.printf "Command queue created successfully.\n";
 
   (* 2. Prepare Data *)
@@ -67,9 +65,6 @@ let () =
   let buffer_x = Metal.Device.new_buffer_with_length device buffer_size options in
   let buffer_y = Metal.Device.new_buffer_with_length device buffer_size options in
   let buffer_a = Metal.Device.new_buffer_with_length device (sizeof float) options in
-
-  if is_nil buffer_x || is_nil buffer_y || is_nil buffer_a then
-    failwith "Failed to create Metal buffers";
   Printf.printf "Metal buffers created successfully.\n";
 
   (* Copy data to buffers *)
@@ -90,50 +85,24 @@ let () =
   Metal.CompileOptions.set_language_version compile_options
     Metal.CompileOptions.LanguageVersion.version_2_4;
 
-  (* Allocate a pointer for potential error object (NSError** ) *)
-  let error_ptr = allocate Objc.id nil in
-  let library : id =
-    Metal.Device.new_library_with_source device saxpy_kernel_source compile_options error_ptr
+  let library : Metal.Library.t =
+    Metal.Device.new_library_with_source device saxpy_kernel_source compile_options
   in
-
-  (* Check error pointer immediately after the call *)
-  let check_error label (err_ptr : id ptr) =
-    (* Dereference to get the ptr id *)
-    assert (not (is_nil err_ptr)); (* Check if the pointer itself is nil *)
-    let error_id : id = !@err_ptr in
-    (* Dereference the non-nil pointer to get the id *)
-    if is_nil error_id then Printf.printf "%s completed successfully (no error object set).\n" label else
-    let desc = get_error_description error_id in
-      failwith (Printf.sprintf "%s failed: %s" label desc)
-  in
-
-  check_error "Library creation" error_ptr;
-  (* Also check if the returned library object itself is nil *)
-  if is_nil library then failwith "Library creation returned nil without setting an error";
 
   let function_name = "saxpy_kernel" in
   let saxpy_function = Metal.Library.new_function_with_name library function_name in
-  if is_nil saxpy_function then failwith (Printf.sprintf "Failed to get function %s" function_name);
   Printf.printf "Kernel function '%s' obtained.\n" function_name;
 
   (* 4. Create Pipeline State *)
-  (* Reset error pointer before next call *)
-  error_ptr <-@ nil;
   (* Assign nil_ptr to the location pointed by error_ptr *)
-  let pipeline_state : id =
-    Metal.Device.new_compute_pipeline_state_with_function device saxpy_function error_ptr
+  let pipeline_state =
+    Metal.Device.new_compute_pipeline_state_with_function device saxpy_function
   in
-  check_error "Pipeline state creation" error_ptr;
-  (* Also check if the returned pipeline state object itself is nil *)
-  if is_nil pipeline_state then
-    failwith "Pipeline state creation returned nil without setting an error";
 
   (* 5. Create Command Buffer and Encoder *)
   let command_buffer = Metal.CommandQueue.command_buffer command_queue in
-  if is_nil command_buffer then failwith "Failed to create command buffer";
 
   let compute_encoder = Metal.CommandBuffer.compute_command_encoder command_buffer in
-  if is_nil compute_encoder then failwith "Failed to create compute encoder";
   Printf.printf "Command buffer and encoder created.\n";
 
   (* 6. Set Up Encoder *)

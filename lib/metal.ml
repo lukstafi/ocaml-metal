@@ -24,39 +24,92 @@ let from_nsarray nsarray_id =
         in
         obj_id (* Or further processing if needed *))
 
+(* Error Handling Helper *)
+let get_error_description nserror =
+  if is_nil nserror then "No error"
+  else
+    let localized_description =
+      Objc.msg_send ~self:nserror ~cmd:(selector "localizedDescription") ~typ:(returning Objc.id)
+    in
+    if is_nil localized_description then "Unknown error (no description)"
+    else ocaml_string_from_nsstring localized_description
+
+(* Check error pointer immediately after the call *)
+let check_error label (err_ptr : id ptr) =
+  (* Dereference to get the ptr id *)
+  assert (not (is_nil err_ptr));
+  (* Check if the pointer itself is nil *)
+  let error_id : id = !@err_ptr in
+  (* Dereference the non-nil pointer to get the id *)
+  if is_nil error_id then Printf.printf "%s completed successfully (no error object set).\n" label
+  else
+    let desc = get_error_description error_id in
+    failwith (Printf.sprintf "%s failed: %s" label desc)
+
 module Device = struct
   type t = id
 
   let create_system_default () =
-    Foreign.foreign "MTLCreateSystemDefaultDevice" (void @-> returning Objc.id) ()
+    let device = Foreign.foreign "MTLCreateSystemDefaultDevice" (void @-> returning Objc.id) () in
+    if is_nil device then failwith "Failed to create Metal device";
+    device
 
   let new_command_queue self =
-    Objc.msg_send ~self ~cmd:(selector "newCommandQueue") ~typ:(returning Objc.id)
+    let command_queue =
+      Objc.msg_send ~self ~cmd:(selector "newCommandQueue") ~typ:(returning Objc.id)
+    in
+    if is_nil command_queue then failwith "Failed to create Metal command queue";
+    command_queue
 
   let new_buffer_with_length self length options =
-    Objc.msg_send ~self
-      ~cmd:(selector "newBufferWithLength:options:")
-      ~typ:(ulong @-> ullong @-> returning Objc.id)
-      (Unsigned.ULong.of_int length) options
+    let buffer =
+      Objc.msg_send ~self
+        ~cmd:(selector "newBufferWithLength:options:")
+        ~typ:(ulong @-> ullong @-> returning Objc.id)
+        (Unsigned.ULong.of_int length) options
+    in
+    if is_nil buffer then failwith "Failed to create Metal buffer";
+    buffer
 
-  let new_library_with_source self source options error_ptr =
-    Objc.msg_send ~self
-      ~cmd:(selector "newLibraryWithSource:options:error:")
-      ~typ:(Objc.id @-> Objc.id @-> ptr Objc.id @-> returning Objc.id)
-      (new_string source) options error_ptr
+  let new_library_with_source self source options =
+    (* Allocate a pointer for potential error object (NSError** ) *)
+    let error_ptr = allocate Objc.id nil in
+    let library =
+      Objc.msg_send ~self
+        ~cmd:(selector "newLibraryWithSource:options:error:")
+        ~typ:(Objc.id @-> Objc.id @-> ptr Objc.id @-> returning Objc.id)
+        (new_string source) options error_ptr
+    in
+    check_error "Library creation" error_ptr;
+    (* Also check if the returned library object itself is nil *)
+    if is_nil library then failwith "Failed to create Metal library";
+    library
 
-  let new_compute_pipeline_state_with_function self compute_function error_ptr =
-    Objc.msg_send ~self
-      ~cmd:(selector "newComputePipelineStateWithFunction:error:")
-      ~typ:(Objc.id @-> ptr Objc.id @-> returning Objc.id)
-      compute_function error_ptr
+  let new_compute_pipeline_state_with_function self compute_function =
+    (* Allocate a pointer for potential error object (NSError** ) *)
+    let error_ptr = allocate Objc.id nil in
+    let compute_pipeline_state =
+      Objc.msg_send ~self
+        ~cmd:(selector "newComputePipelineStateWithFunction:error:")
+        ~typ:(Objc.id @-> ptr Objc.id @-> returning Objc.id)
+        compute_function error_ptr
+    in
+    check_error "Compute pipeline state creation" error_ptr;
+    (* Also check if the returned pipeline state object itself is nil *)
+    if is_nil compute_pipeline_state then
+      failwith "Failed to create Metal compute pipeline state without setting an error";
+    compute_pipeline_state
 end
 
 module CommandQueue = struct
   type t = id
 
   let command_buffer self =
-    Objc.msg_send ~self ~cmd:(selector "commandBuffer") ~typ:(returning Objc.id)
+    let command_buffer =
+      Objc.msg_send ~self ~cmd:(selector "commandBuffer") ~typ:(returning Objc.id)
+    in
+    if is_nil command_buffer then failwith "Failed to create Metal command buffer";
+    command_buffer
 end
 
 module ResourceOptions = struct
@@ -78,11 +131,12 @@ module CompileOptions = struct
 
   let init () =
     let cls = Objc.get_class "MTLCompileOptions" in
-    Objc.msg_send ~self:cls ~cmd:(selector "alloc") ~typ:(returning Objc.id)
-    |> fun allocated_obj -> Objc.msg_send ~self:allocated_obj ~cmd:(selector "init") ~typ:(returning Objc.id)
+    Objc.msg_send ~self:cls ~cmd:(selector "alloc") ~typ:(returning Objc.id) |> fun allocated_obj ->
+    Objc.msg_send ~self:allocated_obj ~cmd:(selector "init") ~typ:(returning Objc.id)
 
   module LanguageVersion = struct
     type t = Unsigned.ULLong.t
+
     let version_1_0 = Unsigned.ULLong.of_int 0 (* Deprecated *)
     let version_1_1 = Unsigned.ULLong.of_int 65537
     let version_1_2 = Unsigned.ULLong.of_int 65538
@@ -97,21 +151,21 @@ module CompileOptions = struct
 
   module LibraryType = struct
     type t = Unsigned.ULLong.t
+
     let executable = Unsigned.ULLong.of_int 0
     let dynamic = Unsigned.ULLong.of_int 1
   end
 
   module OptimizationLevel = struct
     type t = Unsigned.ULLong.t
+
     let default = Unsigned.ULLong.of_int 0
     let size = Unsigned.ULLong.of_int 1
     let performance = Unsigned.ULLong.of_int 2
   end
 
   let set_fast_math_enabled self enabled =
-    Objc.msg_send ~self ~cmd:(selector "setFastMathEnabled:")
-      ~typ:(bool @-> returning void)
-      enabled
+    Objc.msg_send ~self ~cmd:(selector "setFastMathEnabled:") ~typ:(bool @-> returning void) enabled
 
   let set_language_version self version =
     Objc.msg_send ~self ~cmd:(selector "setLanguageVersion:")
@@ -124,12 +178,12 @@ module CompileOptions = struct
       library_type
 
   let set_optimization_level self level =
-    Objc.msg_send ~self ~cmd:(selector "setOptimizationLevel:")
+    Objc.msg_send ~self
+      ~cmd:(selector "setOptimizationLevel:")
       ~typ:(ullong @-> returning void)
       level
 
   (* Getters can be added similarly if needed *)
-
 end
 
 module Buffer = struct
@@ -171,7 +225,11 @@ module CommandBuffer = struct
     Objc.msg_send ~self ~cmd:(selector "blitCommandEncoder") ~typ:(returning Objc.id)
 
   let compute_command_encoder self =
-    Objc.msg_send ~self ~cmd:(selector "computeCommandEncoder") ~typ:(returning Objc.id)
+    let compute_command_encoder =
+      Objc.msg_send ~self ~cmd:(selector "computeCommandEncoder") ~typ:(returning Objc.id)
+    in
+    if is_nil compute_command_encoder then failwith "Failed to create Metal compute command encoder";
+    compute_command_encoder
 
   let add_completed_handler self handler_block =
     (* block signature: void (^)(id<MTLCommandBuffer>)) *)
@@ -227,13 +285,17 @@ module Library = struct
   type t = id
 
   let new_function_with_name self name =
-    Objc.msg_send ~self ~cmd:(selector "newFunctionWithName:")
-      ~typ:(Objc.id @-> returning Objc.id)
-      (new_string name)
+    let function_name =
+      Objc.msg_send ~self ~cmd:(selector "newFunctionWithName:")
+        ~typ:(Objc.id @-> returning Objc.id)
+        (new_string name)
+    in
+    if is_nil function_name then failwith "Failed to create Metal function";
+    function_name
 
   let function_names self =
     let ns_array = Objc.msg_send ~self ~cmd:(selector "functionNames") ~typ:(returning Objc.id) in
-    from_nsarray ns_array
+    from_nsarray ns_array |> Array.map ocaml_string_from_nsstring
 end
 
 module Function = struct
@@ -325,13 +387,3 @@ module ComputeCommandEncoder = struct
       ~typ:(Size.t @-> Size.t @-> returning void)
       threadgroups_per_grid threads_per_threadgroup
 end
-
-(* Error Handling Helper *)
-let get_error_description nserror =
-  if is_nil nserror then "No error"
-  else
-    let localized_description =
-      Objc.msg_send ~self:nserror ~cmd:(selector "localizedDescription") ~typ:(returning Objc.id)
-    in
-    if is_nil localized_description then "Unknown error (no description)"
-    else ocaml_string_from_nsstring localized_description
