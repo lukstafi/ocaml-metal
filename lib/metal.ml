@@ -61,7 +61,7 @@ module Device = struct
     if is_nil command_queue then failwith "Failed to create Metal command queue";
     command_queue
 
-  let new_buffer_with_length self length options =
+  let new_buffer_with_length self ~length options =
     let buffer =
       Objc.msg_send ~self
         ~cmd:(selector "newBufferWithLength:options:")
@@ -71,7 +71,7 @@ module Device = struct
     if is_nil buffer then failwith "Failed to create Metal buffer";
     buffer
 
-  let new_library_with_source self source options =
+  let new_library_with_source self ~source options =
     (* Allocate a pointer for potential error object (NSError** ) *)
     let error_ptr = allocate Objc.id nil in
     let library =
@@ -388,13 +388,13 @@ module ComputeCommandEncoder = struct
       r.structured
   end
 
-  let dispatch_threads self threads_per_grid threads_per_threadgroup =
+  let dispatch_threads self ~threads_per_grid ~threads_per_threadgroup =
     Objc.msg_send ~self
       ~cmd:(selector "dispatchThreads:threadsPerThreadgroup:")
       ~typ:(Size.t @-> Size.t @-> returning void)
       !@threads_per_grid !@threads_per_threadgroup
 
-  let dispatch_threadgroups self threadgroups_per_grid threads_per_threadgroup =
+  let dispatch_threadgroups self ~threadgroups_per_grid ~threads_per_threadgroup =
     Objc.msg_send ~self
       ~cmd:(selector "dispatchThreadgroups:threadsPerThreadgroup:")
       ~typ:(Size.t @-> Size.t @-> returning void)

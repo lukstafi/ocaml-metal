@@ -309,27 +309,19 @@ module ComputeCommandEncoder : sig
 
     val make :
       ox:int ->
-      (* Origin x *)
       oy:int ->
-      (* Origin y *)
       oz:int ->
-      (* Origin z *)
       sx:int ->
-      (* Size width *)
       sy:int ->
-      (* Size height *)
       sz:int ->
-      (* Size depth *)
       t
-    (** Creates an MTLRegion structure. *)
+    (** Creates an MTLRegion structure. [ox, oy, oz] is the origin, [sx, sy, sz] is the size. *)
   end
 
   val dispatch_threads :
     t ->
-    Size.t ->
-    (* threadsPerGrid *)
-    Size.t ->
-    (* threadsPerThreadgroup *)
+    threads_per_grid:Size.t ->
+    threads_per_threadgroup:Size.t ->
     unit
   (** Dispatches compute work items based on the total number of threads in the grid. See
       {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/1515819-dispatchthreads}
@@ -337,10 +329,8 @@ module ComputeCommandEncoder : sig
 
   val dispatch_threadgroups :
     t ->
-    Size.t ->
-    (* threadgroupsPerGrid *)
-    Size.t ->
-    (* threadsPerThreadgroup *)
+    threadgroups_per_grid:Size.t ->
+    threads_per_threadgroup:Size.t ->
     unit
   (** Dispatches compute work items based on the number of threadgroups in the grid. See
       {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/16494dispatchthreadgroups}
@@ -413,10 +403,8 @@ module Device : sig
 
   val new_buffer_with_length :
     t ->
-    int ->
-    (* length *)
+    length:int ->
     ResourceOptions.t ->
-    (* options *)
     Buffer.t
   (** Creates a new buffer allocated on this device. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/1433429-newbufferwithlength}
@@ -424,10 +412,8 @@ module Device : sig
 
   val new_library_with_source :
     t ->
-    string ->
-    (* source *)
+    source:string ->
     CompileOptions.t ->
-    (* options *)
     Library.t
   (** Creates a new library by compiling Metal Shading Language source code. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/1433431-newlibrarywithsource}
@@ -436,7 +422,6 @@ module Device : sig
   val new_compute_pipeline_state_with_function :
     t ->
     Function.t ->
-    (* function *)
     ComputePipelineState.t
   (** Creates a new compute pipeline state from a function object. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/1433427-newcomputepipelinestatewithfunc}

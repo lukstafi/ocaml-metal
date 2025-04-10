@@ -62,9 +62,9 @@ let () =
   let options = Metal.ResourceOptions.storage_mode_shared in
 
   (* Create Metal buffers *)
-  let buffer_x = Metal.Device.new_buffer_with_length device buffer_size options in
-  let buffer_y = Metal.Device.new_buffer_with_length device buffer_size options in
-  let buffer_a = Metal.Device.new_buffer_with_length device (sizeof float) options in
+  let buffer_x = Metal.Device.new_buffer_with_length device ~length:buffer_size options in
+  let buffer_y = Metal.Device.new_buffer_with_length device ~length:buffer_size options in
+  let buffer_a = Metal.Device.new_buffer_with_length device ~length:(sizeof float) options in
   Printf.printf "Metal buffers created successfully.\n";
 
   (* Copy data to buffers *)
@@ -86,7 +86,7 @@ let () =
     Metal.CompileOptions.LanguageVersion.version_2_4;
 
   let library : Metal.Library.t =
-    Metal.Device.new_library_with_source device saxpy_kernel_source compile_options
+    Metal.Device.new_library_with_source device ~source:saxpy_kernel_source compile_options
   in
 
   let function_name = "saxpy_kernel" in
@@ -126,8 +126,8 @@ let () =
     Metal.ComputeCommandEncoder.Size.make ~width:array_length ~height:1 ~depth:1
   in
 
-  Metal.ComputeCommandEncoder.dispatch_threads compute_encoder threads_per_grid
-    threads_per_threadgroup;
+  Metal.ComputeCommandEncoder.dispatch_threads compute_encoder ~threads_per_grid
+    ~threads_per_threadgroup;
   Printf.printf "Kernel dispatched.\n";
 
   (* 8. End Encoding and Commit *)
