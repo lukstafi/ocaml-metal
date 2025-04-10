@@ -22,7 +22,7 @@
 <struct name='MTLMapIndirectArguments' type64='{MTLMapIndirectArguments=&quot;regionOriginX&quot;I&quot;regionOriginY&quot;I&quot;regionOriginZ&quot;I&quot;regionSizeWidth&quot;I&quot;regionSizeHeight&quot;I&quot;regionSizeDepth&quot;I&quot;mipMapLevel&quot;I&quot;sliceId&quot;I}'/>
 <struct name='MTLOrigin' type64='{MTLOrigin=&quot;x&quot;Q&quot;y&quot;Q&quot;z&quot;Q}'/>
 <struct name='MTLPackedFloat3' type64='{_MTLPackedFloat3=}'/>
-<struct name='MTLPackedFloat4x3' type64='{_MTLPackedFloat4x3=&quot;columns&quot;[4]{_MTLPackedFloat3}}'/>
+<struct name='MTLPackedFloat4x3' type64='{_MTLPackedFloat4x3=&quot;columns&quot;[4{_MTLPackedFloat3}}'/>
 <struct name='MTLPackedFloatQuaternion' type64='{MTLPackedFloatQuaternion=&quot;x&quot;f&quot;y&quot;f&quot;z&quot;f&quot;w&quot;f}'/>
 <struct name='MTLQuadTessellationFactorsHalf' type64='{MTLQuadTessellationFactorsHalf=&quot;edgeTessellationFactor&quot;[4S]&quot;insideTessellationFactor&quot;[2S]}'/>
 <struct name='MTLRegion' type64='{MTLRegion=&quot;origin&quot;{MTLOrigin=&quot;x&quot;Q&quot;y&quot;Q&quot;z&quot;Q}&quot;size&quot;{MTLSize=&quot;width&quot;Q&quot;height&quot;Q&quot;depth&quot;Q}}'/>
@@ -36,7 +36,7 @@
 <struct name='MTLTriangleTessellationFactorsHalf' type64='{MTLTriangleTessellationFactorsHalf=&quot;edgeTessellationFactor&quot;[3S]&quot;insideTessellationFactor&quot;S}'/>
 <struct name='MTLVertexAmplificationViewMapping' type64='{MTLVertexAmplificationViewMapping=&quot;viewportArrayIndexOffset&quot;I&quot;renderTargetArrayIndexOffset&quot;I}'/>
 <struct name='MTLViewport' type64='{MTLViewport=&quot;originX&quot;d&quot;originY&quot;d&quot;width&quot;d&quot;height&quot;d&quot;znear&quot;d&quot;zfar&quot;d}'/>
-<struct name='struct (anonymous at /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.1.Internal.sdk/System/Library/Frameworks/Metal.framework/Headers/MTLAccelerationStructureTypes.h:12:9)' type64='{struct (anonymous at /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.1.Internal.sdk/System/Library/Frameworks/Metal.framework/Headers/MTLAccelerationStructureTypes.h:12:9)=&quot;x&quot;f&quot;y&quot;f&quot;z&quot;f}'/>
+<struct name='struct (anonymous at /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Metal.framework/Versions/Current/Headers/MTLAccelerationStructureTypes.h:12:9)' type64='{struct (anonymous at /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Metal.framework/Versions/Current/Headers/MTLAccelerationStructureTypes.h:12:9)=&quot;x&quot;f&quot;y&quot;f&quot;z&quot;f}'/>
 <constant name='MTLBinaryArchiveDomain' type64='@'/>
 <constant name='MTLCaptureErrorDomain' type64='@'/>
 <constant name='MTLCommandBufferEncoderInfoErrorKey' type64='@'/>

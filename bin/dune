@@ -1,4 +1,4 @@
 (executable
  (public_name metal)
  (name main)
- (libraries metal))
+ (libraries metal camlkit-base.runtime))

@@ -1,2 +1,7 @@
-(test
- (name test_metal))
+; (test
+;  (name test_metal))
+
+(executable
+ (name saxpy)
+ (modules saxpy)
+ (libraries metal))
