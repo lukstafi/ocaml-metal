@@ -193,24 +193,28 @@ module Buffer = struct
   let length self = Objc.msg_send ~self ~cmd:(selector "length") ~typ:(returning ulong)
 
   module NSRange = struct
-    type t
+    type nsrange
+    type t = nsrange structure ptr
 
-    let t : t structure typ = structure "NSRange"
-    let location = field t "location" ulong
-    let length = field t "length" ulong
+    let t : nsrange structure typ = structure "NSRange"
+    let location_field = field t "location" ulong
+    let length_field = field t "length" ulong
     let () = seal t
+
+    let location range = getf !@range location_field
+    let length range = getf !@range length_field
 
     let make ~location:(loc : int) ~length:(len : int) =
       let s = make t in
-      setf s location (Unsigned.ULong.of_int loc);
-      setf s length (Unsigned.ULong.of_int len);
-      s
+      setf s location_field (Unsigned.ULong.of_int loc);
+      setf s length_field (Unsigned.ULong.of_int len);
+      s.structured
   end
 
   let did_modify_range self range_struct =
     Objc.msg_send ~self ~cmd:(selector "didModifyRange:")
       ~typ:(NSRange.t @-> returning void)
-      range_struct
+      !@range_struct
 end
 
 module CommandBuffer = struct
@@ -337,53 +341,62 @@ module ComputeCommandEncoder = struct
       buffer (Unsigned.ULong.of_int offset) (Unsigned.ULong.of_int index)
 
   module Size = struct
-    type t
+    type mtlsize
+    type t = mtlsize structure ptr
 
-    let t : t structure typ = structure "MTLSize"
-    let width = field t "width" ulong
-    let height = field t "height" ulong
-    let depth = field t "depth" ulong
+    let t : mtlsize structure typ = structure "MTLSize"
+    let width_field = field t "width" ulong
+    let height_field = field t "height" ulong
+    let depth_field = field t "depth" ulong
     let () = seal t
+
+    let width size = getf !@size width_field
+    let height size = getf !@size height_field
+    let depth size = getf !@size depth_field
 
     let make ~width:(w : int) ~height:(h : int) ~depth:(d : int) =
       (* Expect int *)
       let s = make t in
-      setf s width (Unsigned.ULong.of_int w);
+      setf s width_field (Unsigned.ULong.of_int w);
       (* Convert to ulong *)
-      setf s height (Unsigned.ULong.of_int h);
+      setf s height_field (Unsigned.ULong.of_int h);
       (* Convert to ulong *)
-      setf s depth (Unsigned.ULong.of_int d);
+      setf s depth_field (Unsigned.ULong.of_int d);
       (* Convert to ulong *)
-      s
+      s.structured
   end
 
   module Region = struct
-    type t
+    type mtlregion
+    type t = mtlregion structure ptr
 
-    let t : t structure typ = structure "MTLRegion"
-    let origin = field t "origin" Size.t (* MTLOrigin is {x,y,z} ulongs, same struct *)
-    let size = field t "size" Size.t (* MTLSize is {width,height,depth} ulongs *)
+    let t : mtlregion structure typ = structure "MTLRegion"
+    let origin_field = field t "origin" Size.t (* MTLOrigin is {x,y,z} ulongs, same struct *)
+    let size_field = field t "size" Size.t (* MTLSize is {width,height,depth} ulongs *)
     let () = seal t
+
+    let origin region = (getf !@region origin_field).structured
+    let size region = (getf !@region size_field).structured
 
     let make ~(ox : int) ~(oy : int) ~(oz : int) ~(sx : int) ~(sy : int) ~(sz : int) =
       (* Expect int *)
       let r = make t in
       let origin_val = Size.make ~width:ox ~height:oy ~depth:oz in
       let size_val = Size.make ~width:sx ~height:sy ~depth:sz in
-      setf r origin origin_val;
-      setf r size size_val;
-      r
+      setf r origin_field !@origin_val;
+      setf r size_field !@size_val;
+      r.structured
   end
 
   let dispatch_threads self threads_per_grid threads_per_threadgroup =
     Objc.msg_send ~self
       ~cmd:(selector "dispatchThreads:threadsPerThreadgroup:")
       ~typ:(Size.t @-> Size.t @-> returning void)
-      threads_per_grid threads_per_threadgroup
+      !@threads_per_grid !@threads_per_threadgroup
 
   let dispatch_threadgroups self threadgroups_per_grid threads_per_threadgroup =
     Objc.msg_send ~self
       ~cmd:(selector "dispatchThreadgroups:threadsPerThreadgroup:")
       ~typ:(Size.t @-> Size.t @-> returning void)
-      threadgroups_per_grid threads_per_threadgroup
+      !@threadgroups_per_grid !@threads_per_threadgroup
 end

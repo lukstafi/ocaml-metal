@@ -1,53 +1,70 @@
 module CG = CoreGraphics
 
-(** A generic Objective-C object pointer. See {{: https://developer.apple.com/documentation/objectivec/id } id} *)
 type id = Runtime.Objc.objc_object Ctypes.structure Ctypes_static.ptr
+(** A generic Objective-C object pointer. See
+    {{:https://developer.apple.com/documentation/objectivec/id} id} *)
 
-(** A null pointer suitable for Objective-C objects. *)
 val nil_ptr : id Ctypes.ptr
-(** Converts an NSString object to an OCaml string. *)
+(** A null pointer suitable for Objective-C objects. *)
+
 val ocaml_string_from_nsstring : Runtime.Objc.objc_object Ctypes.structure Ctypes.ptr -> string
+(** Converts an NSString object to an OCaml string. *)
 
+val from_nsarray : Runtime.Objc.objc_object Ctypes.structure Ctypes.ptr -> id array
 (** Converts an NSArray object containing Objective-C objects into an OCaml array of [id]. *)
-val from_nsarray :
-  Runtime.Objc.objc_object Ctypes.structure Ctypes.ptr ->
-  id array
 
-(** Options for configuring Metal resources like buffers and textures.
-    See {{: https://developer.apple.com/documentation/metal/mtlresourceoptions } MTLResourceOptions} *)
+(** Options for configuring Metal resources like buffers and textures. See
+    {{:https://developer.apple.com/documentation/metal/mtlresourceoptions} MTLResourceOptions} *)
 module ResourceOptions : sig
   type t = Unsigned.ullong
 
   val ullong : Unsigned.ullong Ctypes_static.typ
-  (** Shared between CPU and GPU. See {{: https://developer.apple.com/documentation/metal/mtlstoragemode/shared } MTLStorageModeShared} *)
+
   val storage_mode_shared : t
-  (** Managed by the system, requiring synchronization. See {{: https://developer.apple.com/documentation/metal/mtlstoragemode/managed } MTLStorageModeManaged} *)
+  (** Shared between CPU and GPU. See
+      {{:https://developer.apple.com/documentation/metal/mtlstoragemode/shared}
+       MTLStorageModeShared} *)
+
   val storage_mode_managed : t
-  (** Private to the GPU. See {{: https://developer.apple.com/documentation/metal/mtlstoragemode/private } MTLStorageModePrivate} *)
+  (** Managed by the system, requiring synchronization. See
+      {{:https://developer.apple.com/documentation/metal/mtlstoragemode/managed}
+       MTLStorageModeManaged} *)
+
   val storage_mode_private : t
-  (** Default CPU cache mode. See {{: https://developer.apple.com/documentation/metal/mtlcpucachemode/defaultcache } MTLCPUCacheModeDefaultCache} *)
+  (** Private to the GPU. See
+      {{:https://developer.apple.com/documentation/metal/mtlstoragemode/private}
+       MTLStorageModePrivate} *)
+
   val cpu_cache_mode_default_cache : t
-  (** Write-combined CPU cache mode. See {{: https://developer.apple.com/documentation/metal/mtlcpucachemode/writecombined } MTLCPUCacheModeWriteCombined} *)
+  (** Default CPU cache mode. See
+      {{:https://developer.apple.com/documentation/metal/mtlcpucachemode/defaultcache}
+       MTLCPUCacheModeDefaultCache} *)
+
   val cpu_cache_mode_write_combined : t
-  (** Combines resource options using bitwise OR. *)
+  (** Write-combined CPU cache mode. See
+      {{:https://developer.apple.com/documentation/metal/mtlcpucachemode/writecombined}
+       MTLCPUCacheModeWriteCombined} *)
+
   val ( + ) : t -> t -> t
+  (** Combines resource options using bitwise OR. *)
 end
 
-(** Options for compiling Metal Shading Language (MSL) source code.
-    See {{: https://developer.apple.com/documentation/metal/mtlcompileoptions } MTLCompileOptions} *)
+(** Options for compiling Metal Shading Language (MSL) source code. See
+    {{:https://developer.apple.com/documentation/metal/mtlcompileoptions} MTLCompileOptions} *)
 module CompileOptions : sig
   type t
 
-  (** Creates a new, default set of compile options. *)
   val init : unit -> t
+  (** Creates a new, default set of compile options. *)
 
-  (** Specifies the version of the Metal Shading Language to use.
-      See {{: https://developer.apple.com/documentation/metal/mtllanguageversion } MTLLanguageVersion} *)
+  (** Specifies the version of the Metal Shading Language to use. See
+      {{:https://developer.apple.com/documentation/metal/mtllanguageversion} MTLLanguageVersion} *)
   module LanguageVersion : sig
     type t = ResourceOptions.t
 
-    (** Deprecated. *)
     val version_1_0 : t
+    (** Deprecated. *)
+
     val version_1_1 : t
     val version_1_2 : t
     val version_2_0 : t
@@ -59,150 +76,160 @@ module CompileOptions : sig
     val version_3_1 : t
   end
 
-  (** Specifies the type of library to produce.
-      See {{: https://developer.apple.com/documentation/metal/mtllibrarytype } MTLLibraryType} *)
+  (** Specifies the type of library to produce. See
+      {{:https://developer.apple.com/documentation/metal/mtllibrarytype} MTLLibraryType} *)
   module LibraryType : sig
     type t = ResourceOptions.t
 
-    (** An executable library. *)
     val executable : t
-    (** A dynamic library. *)
+    (** An executable library. *)
+
     val dynamic : t
+    (** A dynamic library. *)
   end
 
-  (** Specifies the optimization level for the compiler.
-      See {{: https://developer.apple.com/documentation/metal/mtllibraryoptimizationlevel } MTLLibraryOptimizationLevel} *)
+  (** Specifies the optimization level for the compiler. See
+      {{:https://developer.apple.com/documentation/metal/mtllibraryoptimizationlevel}
+       MTLLibraryOptimizationLevel} *)
   module OptimizationLevel : sig
     type t = ResourceOptions.t
 
-    (** Default optimization level. *)
     val default : t
-    (** Optimize for size. *)
+    (** Default optimization level. *)
+
     val size : t
-    (** Optimize for performance. *)
+    (** Optimize for size. *)
+
     val performance : t
+    (** Optimize for performance. *)
   end
 
-  (** Enables or disables fast math optimizations. *)
   val set_fast_math_enabled : t -> bool -> unit
+  (** Enables or disables fast math optimizations. *)
 
+  val set_language_version : t -> LanguageVersion.t -> unit
   (** Sets the Metal Shading Language version. *)
-  val set_language_version :
-    t -> LanguageVersion.t -> unit
 
+  val set_library_type : t -> LibraryType.t -> unit
   (** Sets the library type. *)
-  val set_library_type :
-    t -> LibraryType.t -> unit
 
+  val set_optimization_level : t -> OptimizationLevel.t -> unit
   (** Sets the optimization level. *)
-  val set_optimization_level :
-    t -> OptimizationLevel.t -> unit
 end
 
-(** An interface to a Metal buffer object, representing a region of memory.
-    See {{: https://developer.apple.com/documentation/metal/mtlbuffer } MTLBuffer} *)
+(** An interface to a Metal buffer object, representing a region of memory. See
+    {{:https://developer.apple.com/documentation/metal/mtlbuffer} MTLBuffer} *)
 module Buffer : sig
   type t
 
-  (** Returns a pointer to the buffer's contents.
-      See {{: https://developer.apple.com/documentation/metal/mtlbuffer/1515718-contents } contents} *)
   val contents : t -> unit Ctypes_static.ptr
+  (** Returns a pointer to the buffer's contents. See
+      {{:https://developer.apple.com/documentation/metal/mtlbuffer/1515718-contents} contents} *)
 
-  (** Returns the logical size of the buffer in bytes.
-      See {{: https://developer.apple.com/documentation/metal/mtlbuffer/1515936-length } length} *)
   val length : t -> Unsigned.ulong
+  (** Returns the logical size of the buffer in bytes. See
+      {{:https://developer.apple.com/documentation/metal/mtlbuffer/1515936-length} length} *)
 
-  (** Represents a range within a buffer or collection.
-      See {{: https://developer.apple.com/documentation/foundation/nsrange } NSRange} *)
+  (** Represents a range within a buffer or collection. See
+      {{:https://developer.apple.com/documentation/foundation/nsrange} NSRange} *)
   module NSRange : sig
     type t
 
-    val t : t Ctypes.structure Ctypes_static.typ
+    val location : t -> Unsigned.ulong
     (** The starting location (index) of the range. *)
-    val location : (Unsigned.ulong, t Ctypes.structure) Ctypes_static.field
+
+    val length : t -> Unsigned.ulong
     (** The length of the range. *)
-    val length : (Unsigned.ulong, t Ctypes.structure) Ctypes_static.field
+
+    val make : location:int -> length:int -> t
     (** Creates an NSRange structure. *)
-    val make : location:int -> length:int -> (t, [ `Struct ]) Ctypes_static.structured
   end
 
-  (** Notifies the system that a specific range of the buffer's contents has been modified by the CPU.
-      Required for buffers with managed storage mode.
-      See {{: https://developer.apple.com/documentation/metal/mtlbuffer/1515616-didmodifyrange } didModifyRange:} *)
-  val did_modify_range :
-    t ->
-    NSRange.t Ctypes.structure ->
-    unit
+  val did_modify_range : t -> NSRange.t -> unit
+  (** Notifies the system that a specific range of the buffer's contents has been modified by the
+      CPU. Required for buffers with managed storage mode. See
+      {{:https://developer.apple.com/documentation/metal/mtlbuffer/1515616-didmodifyrange}
+       didModifyRange:} *)
 end
 
-(** Represents a single Metal shader function.
-    See {{: https://developer.apple.com/documentation/metal/mtlfunction } MTLFunction} *)
+(** Represents a single Metal shader function. See
+    {{:https://developer.apple.com/documentation/metal/mtlfunction} MTLFunction} *)
 module Function : sig
   type t
 
-  (** Returns the name of the function.
-      See {{: https://developer.apple.com/documentation/metal/mtlfunction/1515878-name } name} *)
   val name : t -> string
+  (** Returns the name of the function. See
+      {{:https://developer.apple.com/documentation/metal/mtlfunction/1515878-name} name} *)
 end
 
-(** Represents a collection of compiled Metal shader functions.
-    See {{: https://developer.apple.com/documentation/metal/mtllibrary } MTLLibrary} *)
+(** Represents a collection of compiled Metal shader functions. See
+    {{:https://developer.apple.com/documentation/metal/mtllibrary} MTLLibrary} *)
 module Library : sig
   type t
 
-  (** Creates a function object for a given function name within the library.
-      See {{: https://developer.apple.com/documentation/metal/mtllibrary/1515524-newfunctionwithname } newFunctionWithName:} *)
   val new_function_with_name : t -> string -> Function.t
+  (** Creates a function object for a given function name within the library. See
+      {{:https://developer.apple.com/documentation/metal/mtllibrary/1515524-newfunctionwithname}
+       newFunctionWithName:} *)
 
-  (** Returns an array of the names of all functions in the library.
-      See {{: https://developer.apple.com/documentation/metal/mtllibrary/1516070-functionnames } functionNames} *)
   val function_names : t -> string array
+  (** Returns an array of the names of all functions in the library. See
+      {{:https://developer.apple.com/documentation/metal/mtllibrary/1516070-functionnames}
+       functionNames} *)
 end
 
-(** Represents a compiled compute pipeline state.
-    See {{: https://developer.apple.com/documentation/metal/mtlcomputepipelinestate } MTLComputePipelineState} *)
+(** Represents a compiled compute pipeline state. See
+    {{:https://developer.apple.com/documentation/metal/mtlcomputepipelinestate}
+     MTLComputePipelineState} *)
 module ComputePipelineState : sig
   type t
 
-  (** The maximum number of threads in a threadgroup for this pipeline state.
-      See {{: https://developer.apple.com/documentation/metal/mtlcomputepipelinestate/1514843-maxtotalthreadsperthreadgroup } maxTotalThreadsPerThreadgroup} *)
   val max_total_threads_per_threadgroup : t -> Unsigned.ulong
+  (** The maximum number of threads in a threadgroup for this pipeline state. See
+      {{:https://developer.apple.com/documentation/metal/mtlcomputepipelinestate/1514843-maxtotalthreadsperthreadgroup}
+       maxTotalThreadsPerThreadgroup} *)
 
-  (** The width of a thread execution group for this pipeline state.
-      See {{: https://developer.apple.com/documentation/metal/mtlcomputepipelinestate/1640034-threadexecutionwidth } threadExecutionWidth} *)
   val thread_execution_width : t -> Unsigned.ulong
+  (** The width of a thread execution group for this pipeline state. See
+      {{:https://developer.apple.com/documentation/metal/mtlcomputepipelinestate/1640034-threadexecutionwidth}
+       threadExecutionWidth} *)
 end
 
-(** An encoder for issuing commands common to all command encoder types.
-    See {{: https://developer.apple.com/documentation/metal/mtlcommandencoder } MTLCommandEncoder} *)
+(** An encoder for issuing commands common to all command encoder types. See
+    {{:https://developer.apple.com/documentation/metal/mtlcommandencoder} MTLCommandEncoder} *)
 module CommandEncoder : sig
   type t
 
-  (** Declares that all command generation from this encoder is complete.
-      See {{: https://developer.apple.com/documentation/metal/mtlcommandencoder/1515817-endencoding } endEncoding} *)
   val end_encoding : t -> unit
-  (** Returns the label associated with the command encoder.
-      See {{: https://developer.apple.com/documentation/metal/mtlcommandencoder/1515815-label } label} *)
+  (** Declares that all command generation from this encoder is complete. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandencoder/1515817-endencoding}
+       endEncoding} *)
+
   val label : t -> string
-  (** Sets the label for the command encoder.
-      See {{: https://developer.apple.com/documentation/metal/mtlcommandencoder/1515477-setlabel } setLabel:} *)
+  (** Returns the label associated with the command encoder. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandencoder/1515815-label} label} *)
+
   val set_label : t -> string -> unit
+  (** Sets the label for the command encoder. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandencoder/1515477-setlabel}
+       setLabel:} *)
 end
 
-(** An encoder for issuing data transfer (blit) commands.
-    See {{: https://developer.apple.com/documentation/metal/mtlblitcommandencoder } MTLBlitCommandEncoder} *)
+(** An encoder for issuing data transfer (blit) commands. See
+    {{:https://developer.apple.com/documentation/metal/mtlblitcommandencoder} MTLBlitCommandEncoder}
+*)
 module BlitCommandEncoder : sig
   type t
 
-  (** Inherited from CommandEncoder. *)
   val end_encoding : t -> unit
   (** Inherited from CommandEncoder. *)
+
   val set_label : t -> string -> unit
   (** Inherited from CommandEncoder. *)
-  val label : t -> string
 
-  (** Copies data from one buffer to another.
-      See {{: https://developer.apple.com/documentation/metal/mtlblitcommandencoder/1515530-copyfrombuffer } copyFromBuffer:sourceOffset:toBuffer:destinationOffset:size:} *)
+  val label : t -> string
+  (** Inherited from CommandEncoder. *)
+
   val copy_from_buffer :
     self:t ->
     source_buffer:Buffer.t ->
@@ -211,176 +238,212 @@ module BlitCommandEncoder : sig
     destination_offset:int ->
     size:int ->
     unit
+  (** Copies data from one buffer to another. See
+      {{:https://developer.apple.com/documentation/metal/mtlblitcommandencoder/1515530-copyfrombuffer}
+       copyFromBuffer:sourceOffset:toBuffer:destinationOffset:size:} *)
 
-  (** Ensures that memory operations on a resource are complete before subsequent commands execute.
-      Required for resources with managed storage mode.
-      See {{: https://developer.apple.com/documentation/metal/mtlblitcommandencoder/1515424-synchronizeresource } synchronizeResource:} *)
   val synchronize_resource :
     self:t ->
-    resource:id -> (* MTLResource, Buffer is one *)
+    resource:id ->
+    (* MTLResource, Buffer is one *)
     unit
+  (** Ensures that memory operations on a resource are complete before subsequent commands execute.
+      Required for resources with managed storage mode. See
+      {{:https://developer.apple.com/documentation/metal/mtlblitcommandencoder/1515424-synchronizeresource}
+       synchronizeResource:} *)
 end
 
-(** An encoder for issuing compute processing commands.
-    See {{: https://developer.apple.com/documentation/metal/mtlcomputecommandencoder } MTLComputeCommandEncoder} *)
+(** An encoder for issuing compute processing commands. See
+    {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder}
+     MTLComputeCommandEncoder} *)
 module ComputeCommandEncoder : sig
   type t
 
-  (** Inherited from CommandEncoder. *)
   val end_encoding : t -> unit
   (** Inherited from CommandEncoder. *)
+
   val set_label : t -> string -> unit
   (** Inherited from CommandEncoder. *)
+
   val label : t -> string
+  (** Inherited from CommandEncoder. *)
 
-  (** Sets the current compute pipeline state object.
-      See {{: https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/1515811-setcomputepipelinestate } setComputePipelineState:} *)
-  val set_compute_pipeline_state :
-    t -> ComputePipelineState.t -> unit
+  val set_compute_pipeline_state : t -> ComputePipelineState.t -> unit
+  (** Sets the current compute pipeline state object. See
+      {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/1515811-setcomputepipelinestate}
+       setComputePipelineState:} *)
 
-  (** Sets a buffer for a compute function.
-      See {{: https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/1515293-setbuffer } setBuffer:offset:atIndex:} *)
-  val set_buffer :
-    t -> Buffer.t -> int -> int -> unit
+  val set_buffer : t -> Buffer.t -> int -> int -> unit
+  (** Sets a buffer for a compute function. See
+      {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/1515293-setbuffer}
+       setBuffer:offset:atIndex:} *)
 
-  (** Defines the dimensions of a grid or threadgroup.
-      See {{: https://developer.apple.com/documentation/metal/mtlsize } MTLSize} *)
+  (** Defines the dimensions of a grid or threadgroup. See
+      {{:https://developer.apple.com/documentation/metal/mtlsize} MTLSize} *)
   module Size : sig
     type t
 
-    val t : t Ctypes.structure Ctypes_static.typ
+    val width : t -> Unsigned.ulong
     (** The width dimension. *)
-    val width : (Unsigned.ulong, t Ctypes.structure) Ctypes_static.field
+
+    val height : t -> Unsigned.ulong
     (** The height dimension. *)
-    val height : (Unsigned.ulong, t Ctypes.structure) Ctypes_static.field
+
+    val depth : t -> Unsigned.ulong
     (** The depth dimension. *)
-    val depth : (Unsigned.ulong, t Ctypes.structure) Ctypes_static.field
+
+    val make : width:int -> height:int -> depth:int -> t
     (** Creates an MTLSize structure. *)
-    val make : width:int -> height:int -> depth:int -> (t, [ `Struct ]) Ctypes_static.structured
   end
 
-  (** Defines a region within a 1D, 2D, or 3D resource.
-      See {{: https://developer.apple.com/documentation/metal/mtlregion } MTLRegion} *)
+  (** Defines a region within a 1D, 2D, or 3D resource. See
+      {{:https://developer.apple.com/documentation/metal/mtlregion} MTLRegion} *)
   module Region : sig
     type t
 
-    val t : t Ctypes.structure Ctypes_static.typ
+    val origin : t -> Size.t
     (** The origin (starting point {x,y,z}) of the region. Uses MTLSize struct layout. *)
-    val origin : (Size.t Ctypes.structure, t Ctypes.structure) Ctypes_static.field
-    (** The size {width, height, depth} of the region. *)
-    val size : (Size.t Ctypes.structure, t Ctypes.structure) Ctypes_static.field
 
-    (** Creates an MTLRegion structure. *)
+    val size : t -> Size.t
+    (** The size {width, height, depth} of the region. *)
+
     val make :
-      ox:int -> (* Origin x *)
-      oy:int -> (* Origin y *)
-      oz:int -> (* Origin z *)
-      sx:int -> (* Size width *)
-      sy:int -> (* Size height *)
-      sz:int -> (* Size depth *)
-      (t, [ `Struct ]) Ctypes_static.structured
+      ox:int ->
+      (* Origin x *)
+      oy:int ->
+      (* Origin y *)
+      oz:int ->
+      (* Origin z *)
+      sx:int ->
+      (* Size width *)
+      sy:int ->
+      (* Size height *)
+      sz:int ->
+      (* Size depth *)
+      t
+    (** Creates an MTLRegion structure. *)
   end
 
-  (** Dispatches compute work items based on the total number of threads in the grid.
-      See {{: https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/1515819-dispatchthreads } dispatchThreads:threadsPerThreadgroup:} *)
   val dispatch_threads :
     t ->
-    Size.t Ctypes.structure -> (* threadsPerGrid *)
-    Size.t Ctypes.structure -> (* threadsPerThreadgroup *)
+    Size.t ->
+    (* threadsPerGrid *)
+    Size.t ->
+    (* threadsPerThreadgroup *)
     unit
+  (** Dispatches compute work items based on the total number of threads in the grid. See
+      {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/1515819-dispatchthreads}
+       dispatchThreads:threadsPerThreadgroup:} *)
 
-  (** Dispatches compute work items based on the number of threadgroups in the grid.
-      See {{: https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/16494dispatchthreadgroups } dispatchThreadgroups:threadsPerThreadgroup:} *)
   val dispatch_threadgroups :
     t ->
-    Size.t Ctypes.structure -> (* threadgroupsPerGrid *)
-    Size.t Ctypes.structure -> (* threadsPerThreadgroup *)
+    Size.t ->
+    (* threadgroupsPerGrid *)
+    Size.t ->
+    (* threadsPerThreadgroup *)
     unit
+  (** Dispatches compute work items based on the number of threadgroups in the grid. See
+      {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/16494dispatchthreadgroups}
+       dispatchThreadgroups:threadsPerThreadgroup:} *)
 end
 
-(** A container for encoded commands that will be executed by the GPU.
-    See {{: https://developer.apple.com/documentation/metal/mtlcommandbuffer } MTLCommandBuffer} *)
+(** A container for encoded commands that will be executed by the GPU. See
+    {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer} MTLCommandBuffer} *)
 module CommandBuffer : sig
   type t
 
-  (** Submits the command buffer for execution.
-      See {{: https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515649-commit } commit} *)
   val commit : t -> unit
-  (** Waits synchronously until the command buffer has completed execution.
-      See {{: https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515550-waituntilcompleted } waitUntilCompleted} *)
+  (** Submits the command buffer for execution. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515649-commit} commit} *)
+
   val wait_until_completed : t -> unit
+  (** Waits synchronously until the command buffer has completed execution. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515550-waituntilcompleted}
+       waitUntilCompleted} *)
 
-  (** Creates a blit command encoder to encode data transfer commands into the buffer.
-      See {{: https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515500-blitcommandencoder } blitCommandEncoder} *)
-  val blit_command_encoder :
-    t ->
-    BlitCommandEncoder.t
+  val blit_command_encoder : t -> BlitCommandEncoder.t
+  (** Creates a blit command encoder to encode data transfer commands into the buffer. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515500-blitcommandencoder}
+       blitCommandEncoder} *)
 
-  (** Creates a compute command encoder to encode compute commands into the buffer.
-      See {{: https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515806-computecommandencoder } computeCommandEncoder} *)
-  val compute_command_encoder :
-    t ->
-    ComputeCommandEncoder.t
+  val compute_command_encoder : t -> ComputeCommandEncoder.t
+  (** Creates a compute command encoder to encode compute commands into the buffer. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515806-computecommandencoder}
+       computeCommandEncoder} *)
 
-  (** Registers a block to be called when the command buffer completes execution.
-      See {{: https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515831-addcompletedhandler } addCompletedHandler:} *)
   val add_completed_handler :
     t ->
-    (Runtime__C.Types.object_t -> Runtime__C.Types.object_t -> unit) -> (* Block: (MTLCommandBuffer* ) -> void *)
+    (Runtime__C.Types.object_t -> Runtime__C.Types.object_t -> unit) ->
+    (* Block: (MTLCommandBuffer* ) -> void *)
     unit
+  (** Registers a block to be called when the command buffer completes execution. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515831-addcompletedhandler}
+       addCompletedHandler:} *)
 
-  (** Returns an error object if the command buffer execution failed.
-      See {{: https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515780-error } error} *)
   val error : t -> id (* NSError *)
+  (** Returns an error object if the command buffer execution failed. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515780-error} error} *)
 end
 
-(** A queue for submitting command buffers to a device.
-    See {{: https://developer.apple.com/documentation/metal/mtlcommandqueue } MTLCommandQueue} *)
+(** A queue for submitting command buffers to a device. See
+    {{:https://developer.apple.com/documentation/metal/mtlcommandqueue} MTLCommandQueue} *)
 module CommandQueue : sig
   type t
 
-  (** Creates a new command buffer associated with this queue.
-      See {{: https://developer.apple.com/documentation/metal/mtlcommandqueue/1515758-commandbuffer } commandBuffer} *)
   val command_buffer : t -> CommandBuffer.t
+  (** Creates a new command buffer associated with this queue. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandqueue/1515758-commandbuffer}
+       commandBuffer} *)
 end
 
-(** Represents the GPU device capable of executing Metal commands.
-    See {{: https://developer.apple.com/documentation/metal/mtldevice } MTLDevice} *)
+(** Represents the GPU device capable of executing Metal commands. See
+    {{:https://developer.apple.com/documentation/metal/mtldevice} MTLDevice} *)
 module Device : sig
   type t
 
-  (** Returns the default Metal device for the system.
-      See {{: https://developer.apple.com/documentation/metal/1433401-mtlcreatesystemdefaultdevice } MTLCreateSystemDefaultDevice} *)
   val create_system_default : unit -> t
+  (** Returns the default Metal device for the system. See
+      {{:https://developer.apple.com/documentation/metal/1433401-mtlcreatesystemdefaultdevice}
+       MTLCreateSystemDefaultDevice} *)
 
-  (** Creates a new command queue associated with this device.
-      See {{: https://developer.apple.com/documentation/metal/mtldevice/1433388-newcommandqueue } newCommandQueue} *)
   val new_command_queue : t -> CommandQueue.t
+  (** Creates a new command queue associated with this device. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/1433388-newcommandqueue}
+       newCommandQueue} *)
 
-  (** Creates a new buffer allocated on this device.
-      See {{: https://developer.apple.com/documentation/metal/mtldevice/1433429-newbufferwithlength } newBufferWithLength:options:} *)
   val new_buffer_with_length :
     t ->
-    int -> (* length *)
-    ResourceOptions.t -> (* options *)
+    int ->
+    (* length *)
+    ResourceOptions.t ->
+    (* options *)
     Buffer.t
+  (** Creates a new buffer allocated on this device. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/1433429-newbufferwithlength}
+       newBufferWithLength:options:} *)
 
-  (** Creates a new library by compiling Metal Shading Language source code.
-      See {{: https://developer.apple.com/documentation/metal/mtldevice/1433431-newlibrarywithsource } newLibraryWithSource:options:error:} *)
   val new_library_with_source :
     t ->
-    string -> (* source *)
-    CompileOptions.t -> (* options *)
+    string ->
+    (* source *)
+    CompileOptions.t ->
+    (* options *)
     Library.t
+  (** Creates a new library by compiling Metal Shading Language source code. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/1433431-newlibrarywithsource}
+       newLibraryWithSource:options:error:} *)
 
-  (** Creates a new compute pipeline state from a function object.
-      See {{: https://developer.apple.com/documentation/metal/mtldevice/1433427-newcomputepipelinestatewithfunc } newComputePipelineStateWithFunction:error:} *)
   val new_compute_pipeline_state_with_function :
     t ->
-    Function.t -> (* function *)
+    Function.t ->
+    (* function *)
     ComputePipelineState.t
+  (** Creates a new compute pipeline state from a function object. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/1433427-newcomputepipelinestatewithfunc}
+       newComputePipelineStateWithFunction:error:} *)
 end
 
-(** Extracts the localized description string from an NSError object.
-    See {{: https://developer.apple.com/documentation/foundation/nserror/1414418-localizeddescription } localizedDescription} *)
 val get_error_description : id -> string
+(** Extracts the localized description string from an NSError object. See
+    {{:https://developer.apple.com/documentation/foundation/nserror/1414418-localizeddescription}
+     localizedDescription} *)
