@@ -2,6 +2,8 @@
 
 (name metal)
 
+(version 0.1.0)
+
 (generate_opam_files true)
 
 (source
@@ -13,17 +15,27 @@
 
 (license MIT)
 
-(documentation https://url/to/documentation)
+(documentation https://github.com/lukstafi/ocaml-metal/blob/main/README.md)
 
 (package
  (name metal)
- (synopsis "A short synopsis")
- (description "A longer description")
+ (synopsis
+  "OCaml bindings to selected parts of Apple Metal, for general compute applications")
+ (description
+  "OCaml bindings to selected parts of Apple Metal, for general compute applications")
  (depends
-  ocaml
-  camlkit-base
-  )
+  (ocaml
+   (>= 4.13))
+  dune
+  (ctypes
+   (>= 0.14.0))
+  ctypes-foreign
+  sexplib0
+  ppx_sexp_conv
+  ppx_expect
+  (odoc :with-doc)
+  camlkit-base)
  (tags
-  ("add topics" "to describe" your project)))
+  ("metal" "gpu" "compute" "apple")))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
