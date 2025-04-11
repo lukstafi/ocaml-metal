@@ -53,52 +53,6 @@ module Device = struct
     let device = Foreign.foreign "MTLCreateSystemDefaultDevice" (void @-> returning Objc.id) () in
     if is_nil device then failwith "Failed to create Metal device";
     device
-
-  let new_command_queue self =
-    let command_queue =
-      Objc.msg_send ~self ~cmd:(selector "newCommandQueue") ~typ:(returning Objc.id)
-    in
-    if is_nil command_queue then failwith "Failed to create Metal command queue";
-    command_queue
-
-  let new_buffer_with_length self ~length options =
-    let buffer =
-      Objc.msg_send ~self
-        ~cmd:(selector "newBufferWithLength:options:")
-        ~typ:(ulong @-> ullong @-> returning Objc.id)
-        (Unsigned.ULong.of_int length) options
-    in
-    if is_nil buffer then failwith "Failed to create Metal buffer";
-    buffer
-
-  let new_library_with_source self ~source options =
-    (* Allocate a pointer for potential error object (NSError** ) *)
-    let error_ptr = allocate Objc.id nil in
-    let library =
-      Objc.msg_send ~self
-        ~cmd:(selector "newLibraryWithSource:options:error:")
-        ~typ:(Objc.id @-> Objc.id @-> ptr Objc.id @-> returning Objc.id)
-        (new_string source) options error_ptr
-    in
-    check_error "Library creation" error_ptr;
-    (* Also check if the returned library object itself is nil *)
-    if is_nil library then failwith "Failed to create Metal library";
-    library
-
-  let new_compute_pipeline_state_with_function self compute_function =
-    (* Allocate a pointer for potential error object (NSError** ) *)
-    let error_ptr = allocate Objc.id nil in
-    let compute_pipeline_state =
-      Objc.msg_send ~self
-        ~cmd:(selector "newComputePipelineStateWithFunction:error:")
-        ~typ:(Objc.id @-> ptr Objc.id @-> returning Objc.id)
-        compute_function error_ptr
-    in
-    check_error "Compute pipeline state creation" error_ptr;
-    (* Also check if the returned pipeline state object itself is nil *)
-    if is_nil compute_pipeline_state then
-      failwith "Failed to create Metal compute pipeline state without setting an error";
-    compute_pipeline_state
 end
 
 module CommandQueue = struct
@@ -110,6 +64,13 @@ module CommandQueue = struct
     in
     if is_nil command_buffer then failwith "Failed to create Metal command buffer";
     command_buffer
+    
+  let on_device self =
+    let command_queue =
+      Objc.msg_send ~self ~cmd:(selector "newCommandQueue") ~typ:(returning Objc.id)
+    in
+    if is_nil command_queue then failwith "Failed to create Metal command queue";
+    command_queue
 end
 
 module ResourceOptions = struct
@@ -200,7 +161,6 @@ module Buffer = struct
     let location_field = field t "location" ulong
     let length_field = field t "length" ulong
     let () = seal t
-
     let location range = getf !@range location_field
     let length range = getf !@range length_field
 
@@ -215,6 +175,16 @@ module Buffer = struct
     Objc.msg_send ~self ~cmd:(selector "didModifyRange:")
       ~typ:(NSRange.t @-> returning void)
       !@range_struct
+      
+  let on_device self ~length options =
+    let buffer =
+      Objc.msg_send ~self
+        ~cmd:(selector "newBufferWithLength:options:")
+        ~typ:(ulong @-> ullong @-> returning Objc.id)
+        (Unsigned.ULong.of_int length) options
+    in
+    if is_nil buffer then failwith "Failed to create Metal buffer";
+    buffer
 end
 
 module CommandBuffer = struct
@@ -243,6 +213,18 @@ module CommandBuffer = struct
       block
 
   let error self = Objc.msg_send ~self ~cmd:(selector "error") ~typ:(returning Objc.id)
+
+  let encode_signal_event self event value =
+    Objc.msg_send ~self
+      ~cmd:(selector "encodeSignalEvent:value:")
+      ~typ:(Objc.id @-> ullong @-> returning void)
+      event value
+
+  let encode_wait_for_event self event value =
+    Objc.msg_send ~self
+      ~cmd:(selector "encodeWaitForEvent:value:")
+      ~typ:(Objc.id @-> ullong @-> returning void)
+      event value
 end
 
 module CommandEncoder = struct
@@ -258,6 +240,29 @@ module CommandEncoder = struct
     Objc.msg_send ~self ~cmd:(selector "setLabel:")
       ~typ:(Objc.id @-> returning void)
       (new_string label_str)
+end
+
+(* Fences *)
+module Fence = struct
+  type t = id
+
+  let device self = Objc.msg_send ~self ~cmd:(selector "device") ~typ:(returning Objc.id)
+
+  let label self =
+    Objc.msg_send ~self ~cmd:(selector "label") ~typ:(returning Objc.id)
+    |> ocaml_string_from_nsstring
+
+  let set_label self label_str =
+    Objc.msg_send ~self ~cmd:(selector "setLabel:")
+      ~typ:(Objc.id @-> returning void)
+      (new_string label_str)
+      
+  let on_device self =
+    let fence = Objc.msg_send ~self ~cmd:(selector "newFence") ~typ:(returning Objc.id) in
+    if is_nil fence then failwith "Failed to create Metal fence";
+    fence
+    
+  let get_device = device
 end
 
 module BlitCommandEncoder = struct
@@ -283,6 +288,22 @@ module BlitCommandEncoder = struct
     Objc.msg_send ~self ~cmd:(selector "synchronizeResource:")
       ~typ:(Objc.id @-> returning void)
       resource (* Resource is MTLResource, Buffer is one *)
+
+  let update_fence self (fence : Fence.t) =
+    Objc.msg_send ~self ~cmd:(selector "updateFence:") ~typ:(Objc.id @-> returning void) fence
+
+  let wait_for_fence self (fence : Fence.t) =
+    Objc.msg_send ~self ~cmd:(selector "waitForFence:") ~typ:(Objc.id @-> returning void) fence
+
+  let signal_event self event value =
+    Objc.msg_send ~self ~cmd:(selector "signalEvent:value:")
+      ~typ:(Objc.id @-> ullong @-> returning void)
+      event value
+
+  let wait_for_event self event value =
+    Objc.msg_send ~self ~cmd:(selector "waitForEvent:value:")
+      ~typ:(Objc.id @-> ullong @-> returning void)
+      event value
 end
 
 module Library = struct
@@ -300,6 +321,20 @@ module Library = struct
   let function_names self =
     let ns_array = Objc.msg_send ~self ~cmd:(selector "functionNames") ~typ:(returning Objc.id) in
     from_nsarray ns_array |> Array.map ocaml_string_from_nsstring
+    
+  let on_device self ~source options =
+    (* Allocate a pointer for potential error object (NSError** ) *)
+    let error_ptr = allocate Objc.id nil in
+    let library =
+      Objc.msg_send ~self
+        ~cmd:(selector "newLibraryWithSource:options:error:")
+        ~typ:(Objc.id @-> Objc.id @-> ptr Objc.id @-> returning Objc.id)
+        (new_string source) options error_ptr
+    in
+    check_error "Library creation" error_ptr;
+    (* Also check if the returned library object itself is nil *)
+    if is_nil library then failwith "Failed to create Metal library";
+    library
 end
 
 module Function = struct
@@ -318,6 +353,21 @@ module ComputePipelineState = struct
 
   let thread_execution_width self =
     Objc.msg_send ~self ~cmd:(selector "threadExecutionWidth") ~typ:(returning ulong)
+
+  let on_device self compute_function =
+    (* Allocate a pointer for potential error object (NSError** ) *)
+    let error_ptr = allocate Objc.id nil in
+    let compute_pipeline_state =
+      Objc.msg_send ~self
+        ~cmd:(selector "newComputePipelineStateWithFunction:error:")
+        ~typ:(Objc.id @-> ptr Objc.id @-> returning Objc.id)
+        compute_function error_ptr
+    in
+    check_error "Compute pipeline state creation" error_ptr;
+    (* Also check if the returned pipeline state object itself is nil *)
+    if is_nil compute_pipeline_state then
+      failwith "Failed to create Metal compute pipeline state without setting an error";
+    compute_pipeline_state
 end
 
 module ComputeCommandEncoder = struct
@@ -349,7 +399,6 @@ module ComputeCommandEncoder = struct
     let height_field = field t "height" ulong
     let depth_field = field t "depth" ulong
     let () = seal t
-
     let width size = getf !@size width_field
     let height size = getf !@size height_field
     let depth size = getf !@size depth_field
@@ -374,7 +423,6 @@ module ComputeCommandEncoder = struct
     let origin_field = field t "origin" Size.t (* MTLOrigin is {x,y,z} ulongs, same struct *)
     let size_field = field t "size" Size.t (* MTLSize is {width,height,depth} ulongs *)
     let () = seal t
-
     let origin region = (getf !@region origin_field).structured
     let size region = (getf !@region size_field).structured
 
@@ -399,4 +447,86 @@ module ComputeCommandEncoder = struct
       ~cmd:(selector "dispatchThreadgroups:threadsPerThreadgroup:")
       ~typ:(Size.t @-> Size.t @-> returning void)
       !@threadgroups_per_grid !@threads_per_threadgroup
+
+  let update_fence self (fence : Fence.t) =
+    Objc.msg_send ~self ~cmd:(selector "updateFence:") ~typ:(Objc.id @-> returning void) fence
+
+  let wait_for_fence self (fence : Fence.t) =
+    Objc.msg_send ~self ~cmd:(selector "waitForFence:") ~typ:(Objc.id @-> returning void) fence
+
+  let signal_event self event value =
+    Objc.msg_send ~self ~cmd:(selector "signalEvent:value:")
+      ~typ:(Objc.id @-> ullong @-> returning void)
+      event value
+
+  let wait_for_event self event value =
+    Objc.msg_send ~self ~cmd:(selector "waitForEvent:value:")
+      ~typ:(Objc.id @-> ullong @-> returning void)
+      event value
+end
+
+(* Events *)
+module SharedEventHandle = struct
+  type t = id
+
+  let label self =
+    Objc.msg_send ~self ~cmd:(selector "label") ~typ:(returning Objc.id)
+    |> ocaml_string_from_nsstring
+
+  (* Note: MTLSharedEventHandle conforms to NSSecureCoding, but adding full serialization might
+     require more Foundation bindings or specific use cases. *)
+end
+
+module SharedEventListener = struct
+  type t = id
+
+  let init () =
+    let cls = Objc.get_class "MTLSharedEventListener" in
+    Objc.msg_send ~self:cls ~cmd:(selector "alloc") ~typ:(returning Objc.id) |> fun allocated_obj ->
+    Objc.msg_send ~self:allocated_obj ~cmd:(selector "init") ~typ:(returning Objc.id)
+
+  (* init_with_dispatch_queue requires binding dispatch_queue_t, skipping for now *)
+end
+
+module SharedEvent = struct
+  type t = id
+
+  let signaled_value self =
+    Objc.msg_send ~self ~cmd:(selector "signaledValue") ~typ:(returning ullong)
+
+  let label self =
+    Objc.msg_send ~self ~cmd:(selector "label") ~typ:(returning Objc.id)
+    |> ocaml_string_from_nsstring
+
+  let set_label self label_str =
+    Objc.msg_send ~self ~cmd:(selector "setLabel:")
+      ~typ:(Objc.id @-> returning void)
+      (new_string label_str)
+
+  let new_shared_event_handle self =
+    let handle =
+      Objc.msg_send ~self ~cmd:(selector "newSharedEventHandle") ~typ:(returning Objc.id)
+    in
+    if is_nil handle then failwith "Failed to create Metal shared event handle";
+    handle
+
+  let notify_listener (self : t) (listener : SharedEventListener.t) (value : Unsigned.ullong)
+      (callback : SharedEventListener.t -> Unsigned.ullong -> unit) =
+    (* block signature: void (^)(MTLSharedEvent*, uint64_t)) *)
+    let block_callback _self event value = callback event value in
+    let block =
+      (* Objc_type redefines the list constructors *)
+      Block.make block_callback
+        ~args:Objc_type.([ id (* event *); ullong (* value *) ])
+        ~return:Objc_type.void
+    in
+    Objc.msg_send ~self
+      ~cmd:(selector "notifyListener:atValue:block:")
+      ~typ:(Objc.id @-> ullong @-> ptr void @-> returning void)
+      listener value block
+      
+  let on_device self =
+    let event = Objc.msg_send ~self ~cmd:(selector "newSharedEvent") ~typ:(returning Objc.id) in
+    if is_nil event then failwith "Failed to create Metal shared event";
+    event
 end

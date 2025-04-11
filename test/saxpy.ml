@@ -39,7 +39,7 @@ let () =
   let device = Metal.Device.create_system_default () in
   Printf.printf "Metal device created successfully.\n";
 
-  let command_queue = Metal.Device.new_command_queue device in
+  let command_queue = Metal.CommandQueue.on_device device in
   Printf.printf "Command queue created successfully.\n";
 
   (* 2. Prepare Data *)
@@ -62,9 +62,9 @@ let () =
   let options = Metal.ResourceOptions.storage_mode_shared in
 
   (* Create Metal buffers *)
-  let buffer_x = Metal.Device.new_buffer_with_length device ~length:buffer_size options in
-  let buffer_y = Metal.Device.new_buffer_with_length device ~length:buffer_size options in
-  let buffer_a = Metal.Device.new_buffer_with_length device ~length:(sizeof float) options in
+  let buffer_x = Metal.Buffer.on_device device ~length:buffer_size options in
+  let buffer_y = Metal.Buffer.on_device device ~length:buffer_size options in
+  let buffer_a = Metal.Buffer.on_device device ~length:(sizeof float) options in
   Printf.printf "Metal buffers created successfully.\n";
 
   (* Copy data to buffers *)
@@ -86,7 +86,7 @@ let () =
     Metal.CompileOptions.LanguageVersion.version_2_4;
 
   let library : Metal.Library.t =
-    Metal.Device.new_library_with_source device ~source:saxpy_kernel_source compile_options
+    Metal.Library.on_device device ~source:saxpy_kernel_source compile_options
   in
 
   let function_name = "saxpy_kernel" in
@@ -96,7 +96,7 @@ let () =
   (* 4. Create Pipeline State *)
   (* Assign nil_ptr to the location pointed by error_ptr *)
   let pipeline_state =
-    Metal.Device.new_compute_pipeline_state_with_function device saxpy_function
+    Metal.ComputePipelineState.on_device device saxpy_function
   in
 
   (* 5. Create Command Buffer and Encoder *)

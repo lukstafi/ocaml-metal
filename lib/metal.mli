@@ -13,6 +13,17 @@ val ocaml_string_from_nsstring : Runtime.Objc.objc_object Ctypes.structure Ctype
 val from_nsarray : Runtime.Objc.objc_object Ctypes.structure Ctypes.ptr -> id array
 (** Converts an NSArray object containing Objective-C objects into an OCaml array of [id]. *)
 
+(** Represents the GPU device capable of executing Metal commands. See
+    {{:https://developer.apple.com/documentation/metal/mtldevice} MTLDevice} *)
+module Device : sig
+  type t
+
+  val create_system_default : unit -> t
+  (** Returns the default Metal device for the system. See
+      {{:https://developer.apple.com/documentation/metal/1433401-mtlcreatesystemdefaultdevice}
+       MTLCreateSystemDefaultDevice} *)
+end
+
 (** Options for configuring Metal resources like buffers and textures. See
     {{:https://developer.apple.com/documentation/metal/mtlresourceoptions} MTLResourceOptions} *)
 module ResourceOptions : sig
@@ -150,6 +161,11 @@ module Buffer : sig
       CPU. Required for buffers with managed storage mode. See
       {{:https://developer.apple.com/documentation/metal/mtlbuffer/1515616-didmodifyrange}
        didModifyRange:} *)
+
+  val on_device : Device.t -> length:int -> ResourceOptions.t -> t
+  (** Creates a new buffer allocated on this device. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/1433429-newbufferwithlength}
+       newBufferWithLength:options:} *)
 end
 
 (** Represents a single Metal shader function. See
@@ -176,6 +192,11 @@ module Library : sig
   (** Returns an array of the names of all functions in the library. See
       {{:https://developer.apple.com/documentation/metal/mtllibrary/1516070-functionnames}
        functionNames} *)
+
+  val on_device : Device.t -> source:string -> CompileOptions.t -> t
+  (** Creates a new library by compiling Metal Shading Language source code. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/1433431-newlibrarywithsource}
+       newLibraryWithSource:options:error:} *)
 end
 
 (** Represents a compiled compute pipeline state. See
@@ -193,6 +214,11 @@ module ComputePipelineState : sig
   (** The width of a thread execution group for this pipeline state. See
       {{:https://developer.apple.com/documentation/metal/mtlcomputepipelinestate/1640034-threadexecutionwidth}
        threadExecutionWidth} *)
+
+  val on_device : Device.t -> Function.t -> t
+  (** Creates a new compute pipeline state from a function object. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/1433427-newcomputepipelinestatewithfunc}
+       newComputePipelineStateWithFunction:error:} *)
 end
 
 (** An encoder for issuing commands common to all command encoder types. See
@@ -213,6 +239,96 @@ module CommandEncoder : sig
   (** Sets the label for the command encoder. See
       {{:https://developer.apple.com/documentation/metal/mtlcommandencoder/1515477-setlabel}
        setLabel:} *)
+end
+
+(** Represents a GPU synchronization primitive. See
+    {{:https://developer.apple.com/documentation/metal/mtlfence} MTLFence} *)
+module Fence : sig
+  type t
+
+  val label : t -> string
+  (** Returns the label associated with the fence. See
+      {{:https://developer.apple.com/documentation/metal/mtlfence/2866156-label} label} *)
+
+  val set_label : t -> string -> unit
+  (** Sets the label for the fence. See
+      {{:https://developer.apple.com/documentation/metal/mtlfence/2866155-setlabel} setLabel:} *)
+
+  val on_device : Device.t -> t
+  (** Creates a new fence associated with this device. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/2866162-newfence} newFence} *)
+
+  val get_device : t -> Device.t
+  (** Returns the device associated with the fence. See
+      {{:https://developer.apple.com/documentation/metal/mtlfence/2866154-device} device} *)
+end
+
+(** An object used to listen for Metal shared event notifications. See
+    {{:https://developer.apple.com/documentation/metal/mtlsharedeventlistener}
+     MTLSharedEventListener} *)
+module SharedEventListener : sig
+  type t
+  (** The type representing a shared event listener. *)
+
+  val init : unit -> t
+  (** Creates a new shared event listener. See
+      {{:https://developer.apple.com/documentation/metal/mtlsharedeventlistener/2967404-init} init}
+  *)
+
+  (* Removed incorrect fence/event functions from SharedEventListener *)
+end
+
+(** A serializable handle for a shared event. See
+    {{:https://developer.apple.com/documentation/metal/mtlsharedeventhandle} MTLSharedEventHandle}
+*)
+module SharedEventHandle : sig
+  type t
+  (** The type representing a shared event handle. *)
+
+  val label : t -> string
+  (** Returns the label associated with the event handle. *)
+end
+
+(** An event that can be signaled and waited on by the CPU and GPU across process boundaries. See
+    {{:https://developer.apple.com/documentation/metal/mtlsharedevent} MTLSharedEvent} *)
+module SharedEvent : sig
+  type t
+  (** The type representing a shared event. *)
+
+  val signaled_value : t -> Unsigned.ullong
+  (** The current signaled value of the event. See
+      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2967401-signaledvalue}
+       signaledValue} *)
+
+  val label : t -> string
+  (** Returns the label associated with the event. See
+      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2967398-label} label} *)
+
+  val set_label : t -> string -> unit
+  (** Sets the label for the event. See
+      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2967400-setlabel} setLabel:}
+  *)
+
+  val new_shared_event_handle : t -> SharedEventHandle.t
+  (** Creates a new serializable handle for this event. See
+      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2967399-newsharedeventhandle}
+       newSharedEventHandle} *)
+
+  val notify_listener :
+    t ->
+    SharedEventListener.t ->
+    Unsigned.ullong ->
+    (t -> Unsigned.ullong -> unit) ->
+    (* Block: (MTLSharedEvent*, uint64_t) -> void *)
+    unit
+  (** Registers a listener block to be called when the event reaches a specific value. See
+      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2967402-notifylistener}
+       notifyListener:atValue:block:} *)
+
+  val on_device : Device.t -> t
+  (** Creates a new shared event associated with this device. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/2966686-newsharedevent}
+       newSharedEvent} *)
 end
 
 (** An encoder for issuing data transfer (blit) commands. See
@@ -251,6 +367,30 @@ module BlitCommandEncoder : sig
       Required for resources with managed storage mode. See
       {{:https://developer.apple.com/documentation/metal/mtlblitcommandencoder/1515424-synchronizeresource}
        synchronizeResource:} *)
+
+  val update_fence : t -> Fence.t -> unit
+  (** Encodes a command to update a fence after all prior commands in the encoder have completed.
+      See
+      {{:https://developer.apple.com/documentation/metal/mtlblitcommandencoder/2866157-updatefence}
+       updateFence:} *)
+
+  val wait_for_fence : t -> Fence.t -> unit
+  (** Encodes a command that blocks the execution of subsequent commands in the encoder until the
+      fence is updated. See
+      {{:https://developer.apple.com/documentation/metal/mtlblitcommandencoder/2866158-waitforfence}
+       waitForFence:} *)
+
+  val signal_event : t -> SharedEvent.t -> Unsigned.ullong -> unit
+  (** Encodes a command to signal an event with a specific value after all work prior to this
+      command has finished. See
+      {{:https://developer.apple.com/documentation/metal/mtlblitcommandencoder/2966597-signalevent}
+       signalEvent:value:} *)
+
+  val wait_for_event : t -> SharedEvent.t -> Unsigned.ullong -> unit
+  (** Encodes a command that waits until an event reaches a specific value before executing
+      subsequent commands. See
+      {{:https://developer.apple.com/documentation/metal/mtlblitcommandencoder/2966598-waitforevent}
+       waitForEvent:value:} *)
 end
 
 (** An encoder for issuing compute processing commands. See
@@ -307,34 +447,44 @@ module ComputeCommandEncoder : sig
     val size : t -> Size.t
     (** The size {width, height, depth} of the region. *)
 
-    val make :
-      ox:int ->
-      oy:int ->
-      oz:int ->
-      sx:int ->
-      sy:int ->
-      sz:int ->
-      t
+    val make : ox:int -> oy:int -> oz:int -> sx:int -> sy:int -> sz:int -> t
     (** Creates an MTLRegion structure. [ox, oy, oz] is the origin, [sx, sy, sz] is the size. *)
   end
 
-  val dispatch_threads :
-    t ->
-    threads_per_grid:Size.t ->
-    threads_per_threadgroup:Size.t ->
-    unit
+  val dispatch_threads : t -> threads_per_grid:Size.t -> threads_per_threadgroup:Size.t -> unit
   (** Dispatches compute work items based on the total number of threads in the grid. See
       {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/1515819-dispatchthreads}
        dispatchThreads:threadsPerThreadgroup:} *)
 
   val dispatch_threadgroups :
-    t ->
-    threadgroups_per_grid:Size.t ->
-    threads_per_threadgroup:Size.t ->
-    unit
+    t -> threadgroups_per_grid:Size.t -> threads_per_threadgroup:Size.t -> unit
   (** Dispatches compute work items based on the number of threadgroups in the grid. See
       {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/16494dispatchthreadgroups}
        dispatchThreadgroups:threadsPerThreadgroup:} *)
+
+  val update_fence : t -> Fence.t -> unit
+  (** Encodes a command to update a fence after all prior commands in the encoder have completed.
+      See
+      {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/2866161-updatefence}
+       updateFence:} *)
+
+  val wait_for_fence : t -> Fence.t -> unit
+  (** Encodes a command that blocks the execution of subsequent commands in the encoder until the
+      fence is updated. See
+      {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/2866160-waitforfence}
+       waitForFence:} *)
+
+  val signal_event : t -> SharedEvent.t -> Unsigned.ullong -> unit
+  (** Encodes a command to signal an event with a specific value after all work prior to this
+      command has finished. See
+      {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/2966600-signalevent}
+       signalEvent:value:} *)
+
+  val wait_for_event : t -> SharedEvent.t -> Unsigned.ullong -> unit
+  (** Encodes a command that waits until an event reaches a specific value before executing
+      subsequent commands. See
+      {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder/2966599-waitforevent}
+       waitForEvent:value:} *)
 end
 
 (** A container for encoded commands that will be executed by the GPU. See
@@ -373,6 +523,18 @@ module CommandBuffer : sig
   val error : t -> id (* NSError *)
   (** Returns an error object if the command buffer execution failed. See
       {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515780-error} error} *)
+
+  val encode_signal_event : t -> SharedEvent.t -> Unsigned.ullong -> unit
+  (** Encodes a command to signal an event with a specific value when the command buffer reaches
+      this point. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer/2966601-encodesignalevent}
+       encodeSignalEvent:value:} *)
+
+  val encode_wait_for_event : t -> SharedEvent.t -> Unsigned.ullong -> unit
+  (** Encodes a command to pause command buffer execution until an event reaches a specific value.
+      See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer/2966602-encodewaitforevent}
+       encodeWaitForEvent:value:} *)
 end
 
 (** A queue for submitting command buffers to a device. See
@@ -384,48 +546,11 @@ module CommandQueue : sig
   (** Creates a new command buffer associated with this queue. See
       {{:https://developer.apple.com/documentation/metal/mtlcommandqueue/1515758-commandbuffer}
        commandBuffer} *)
-end
 
-(** Represents the GPU device capable of executing Metal commands. See
-    {{:https://developer.apple.com/documentation/metal/mtldevice} MTLDevice} *)
-module Device : sig
-  type t
-
-  val create_system_default : unit -> t
-  (** Returns the default Metal device for the system. See
-      {{:https://developer.apple.com/documentation/metal/1433401-mtlcreatesystemdefaultdevice}
-       MTLCreateSystemDefaultDevice} *)
-
-  val new_command_queue : t -> CommandQueue.t
-  (** Creates a new command queue associated with this device. See
+  val on_device : Device.t -> t
+  (** Creates a new command queue associated with a device. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/1433388-newcommandqueue}
        newCommandQueue} *)
-
-  val new_buffer_with_length :
-    t ->
-    length:int ->
-    ResourceOptions.t ->
-    Buffer.t
-  (** Creates a new buffer allocated on this device. See
-      {{:https://developer.apple.com/documentation/metal/mtldevice/1433429-newbufferwithlength}
-       newBufferWithLength:options:} *)
-
-  val new_library_with_source :
-    t ->
-    source:string ->
-    CompileOptions.t ->
-    Library.t
-  (** Creates a new library by compiling Metal Shading Language source code. See
-      {{:https://developer.apple.com/documentation/metal/mtldevice/1433431-newlibrarywithsource}
-       newLibraryWithSource:options:error:} *)
-
-  val new_compute_pipeline_state_with_function :
-    t ->
-    Function.t ->
-    ComputePipelineState.t
-  (** Creates a new compute pipeline state from a function object. See
-      {{:https://developer.apple.com/documentation/metal/mtldevice/1433427-newcomputepipelinestatewithfunc}
-       newComputePipelineStateWithFunction:error:} *)
 end
 
 val get_error_description : id -> string
