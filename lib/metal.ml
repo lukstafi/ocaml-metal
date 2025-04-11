@@ -49,6 +49,11 @@ let check_error label (err_ptr : id ptr) =
 module Device = struct
   type t = id
 
+  let sexp_of_t t =
+    let device = Objc.msg_send ~self:t ~cmd:(selector "name") ~typ:(returning Objc.id) in
+    let name = ocaml_string_from_nsstring device in
+    Sexplib0.Sexp.Atom name
+
   let create_system_default () =
     let device = Foreign.foreign "MTLCreateSystemDefaultDevice" (void @-> returning Objc.id) () in
     if is_nil device then failwith "Failed to create Metal device";
@@ -57,6 +62,15 @@ end
 
 module CommandQueue = struct
   type t = id
+
+  let sexp_of_t t =
+    let device_id = Objc.msg_send ~self:t ~cmd:(selector "device") ~typ:(returning Objc.id) in
+    let device_sexp =
+      if is_nil device_id then Sexplib0.Sexp.Atom "<no device>"
+      else Device.sexp_of_t device_id
+    in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLCommandQueue>";
+                       Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "device"; device_sexp]]
 
   let command_buffer self =
     let command_buffer =
@@ -75,6 +89,9 @@ end
 
 module ResourceOptions = struct
   type t = Unsigned.ULLong.t
+
+  let sexp_of_t t =
+    Sexplib0.Sexp.Atom (Unsigned.ULLong.to_string t)
 
   let ullong = ullong
   let storage_mode_shared = Unsigned.ULLong.of_int 0
@@ -108,6 +125,20 @@ module CompileOptions = struct
     let version_2_4 = Unsigned.ULLong.of_int 131076
     let version_3_0 = Unsigned.ULLong.of_int 196608
     let version_3_1 = Unsigned.ULLong.of_int 196609
+
+    let sexp_of_t v =
+      let open Sexplib0.Sexp in
+      if Unsigned.ULLong.equal v version_1_0 then Atom "Version_1_0"
+      else if Unsigned.ULLong.equal v version_1_1 then Atom "Version_1_1"
+      else if Unsigned.ULLong.equal v version_1_2 then Atom "Version_1_2"
+      else if Unsigned.ULLong.equal v version_2_0 then Atom "Version_2_0"
+      else if Unsigned.ULLong.equal v version_2_1 then Atom "Version_2_1"
+      else if Unsigned.ULLong.equal v version_2_2 then Atom "Version_2_2"
+      else if Unsigned.ULLong.equal v version_2_3 then Atom "Version_2_3"
+      else if Unsigned.ULLong.equal v version_2_4 then Atom "Version_2_4"
+      else if Unsigned.ULLong.equal v version_3_0 then Atom "Version_3_0"
+      else if Unsigned.ULLong.equal v version_3_1 then Atom "Version_3_1"
+      else Atom ("Unknown_Version_" ^ Unsigned.ULLong.to_string v)
   end
 
   module LibraryType = struct
@@ -115,6 +146,12 @@ module CompileOptions = struct
 
     let executable = Unsigned.ULLong.of_int 0
     let dynamic = Unsigned.ULLong.of_int 1
+
+    let sexp_of_t v =
+      let open Sexplib0.Sexp in
+      if Unsigned.ULLong.equal v executable then Atom "Executable"
+      else if Unsigned.ULLong.equal v dynamic then Atom "Dynamic"
+      else Atom ("Unknown_LibraryType_" ^ Unsigned.ULLong.to_string v)
   end
 
   module OptimizationLevel = struct
@@ -123,20 +160,36 @@ module CompileOptions = struct
     let default = Unsigned.ULLong.of_int 0
     let size = Unsigned.ULLong.of_int 1
     let performance = Unsigned.ULLong.of_int 2
+
+    let sexp_of_t v =
+      let open Sexplib0.Sexp in
+      if Unsigned.ULLong.equal v default then Atom "Default"
+      else if Unsigned.ULLong.equal v size then Atom "Size"
+      else if Unsigned.ULLong.equal v performance then Atom "Performance"
+      else Atom ("Unknown_OptimizationLevel_" ^ Unsigned.ULLong.to_string v)
   end
 
   let set_fast_math_enabled self enabled =
     Objc.msg_send ~self ~cmd:(selector "setFastMathEnabled:") ~typ:(bool @-> returning void) enabled
+
+  let get_fast_math_enabled self =
+    Objc.msg_send ~self ~cmd:(selector "fastMathEnabled") ~typ:(returning bool)
 
   let set_language_version self version =
     Objc.msg_send ~self ~cmd:(selector "setLanguageVersion:")
       ~typ:(ullong @-> returning void)
       version
 
+  let get_language_version self =
+    Objc.msg_send ~self ~cmd:(selector "languageVersion") ~typ:(returning ullong)
+
   let set_library_type self library_type =
     Objc.msg_send ~self ~cmd:(selector "setLibraryType:")
       ~typ:(ullong @-> returning void)
       library_type
+
+  let get_library_type self =
+    Objc.msg_send ~self ~cmd:(selector "libraryType") ~typ:(returning ullong)
 
   let set_optimization_level self level =
     Objc.msg_send ~self
@@ -144,11 +197,29 @@ module CompileOptions = struct
       ~typ:(ullong @-> returning void)
       level
 
-  (* Getters can be added similarly if needed *)
+  let get_optimization_level self =
+    Objc.msg_send ~self ~cmd:(selector "optimizationLevel") ~typ:(returning ullong)
+
+  let sexp_of_t t =
+    let fast_math = get_fast_math_enabled t in
+    let lang_version_val = get_language_version t in
+    let lib_type_val = get_library_type t in
+    let opt_level_val = get_optimization_level t in
+    Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "<MTLCompileOptions>";
+                         Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "fast_math"; Sexplib0.Sexp.Atom (Bool.to_string fast_math) ];
+                         Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "language_version"; LanguageVersion.sexp_of_t lang_version_val ];
+                         Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "library_type"; LibraryType.sexp_of_t lib_type_val ];
+                         Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "optimization_level"; OptimizationLevel.sexp_of_t opt_level_val ];
+                       ]
 end
 
 module Buffer = struct
   type t = id
+
+  let sexp_of_t t =
+    let len = Objc.msg_send ~self:t ~cmd:(selector "length") ~typ:(returning ulong) in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLBuffer>";
+                       Sexplib0.Sexp.Atom ("length: " ^ Unsigned.ULong.to_string len)]
 
   let contents self = Objc.msg_send ~self ~cmd:(selector "contents") ~typ:(returning (ptr void))
   let length self = Objc.msg_send ~self ~cmd:(selector "length") ~typ:(returning ulong)
@@ -163,6 +234,16 @@ module Buffer = struct
     let () = seal t
     let location range = getf !@range location_field
     let length range = getf !@range length_field
+
+    let sexp_of_t range_ptr =
+      if is_null range_ptr then Sexplib0.Sexp.Atom "<null NSRange>" (* Check pointer itself *)
+      else
+        let loc = location range_ptr in (* Use existing helper *)
+        let len = length range_ptr in (* Use existing helper *)
+        Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "NSRange";
+                             Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "location"; Sexplib0.Sexp.Atom (Unsigned.ULong.to_string loc) ];
+                             Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "length"; Sexplib0.Sexp.Atom (Unsigned.ULong.to_string len) ];
+                           ]
 
     let make ~location:(loc : int) ~length:(len : int) =
       let s = make t in
@@ -189,6 +270,12 @@ end
 
 module CommandBuffer = struct
   type t = id
+
+  let sexp_of_t t =
+    let label_id = Objc.msg_send ~self:t ~cmd:(selector "label") ~typ:(returning Objc.id) in
+    let label = ocaml_string_from_nsstring label_id in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLCommandBuffer>";
+                       Sexplib0.Sexp.Atom ("label: " ^ if label = "" then "<no label>" else label)]
 
   let commit self = Objc.msg_send ~self ~cmd:(selector "commit") ~typ:(returning void)
 
@@ -230,6 +317,12 @@ end
 module CommandEncoder = struct
   type t = id
 
+  let sexp_of_t t =
+    let label_id = Objc.msg_send ~self:t ~cmd:(selector "label") ~typ:(returning Objc.id) in
+    let label = ocaml_string_from_nsstring label_id in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLCommandEncoder>";
+                       Sexplib0.Sexp.Atom ("label: " ^ if label = "" then "<no label>" else label)]
+
   let end_encoding self = Objc.msg_send ~self ~cmd:(selector "endEncoding") ~typ:(returning void)
 
   let label self =
@@ -245,6 +338,12 @@ end
 (* Fences *)
 module Fence = struct
   type t = id
+
+  let sexp_of_t t =
+    let label_id = Objc.msg_send ~self:t ~cmd:(selector "label") ~typ:(returning Objc.id) in
+    let label = ocaml_string_from_nsstring label_id in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLFence>";
+                       Sexplib0.Sexp.Atom ("label: " ^ if label = "" then "<no label>" else label)]
 
   let device self = Objc.msg_send ~self ~cmd:(selector "device") ~typ:(returning Objc.id)
 
@@ -267,6 +366,12 @@ end
 
 module BlitCommandEncoder = struct
   type t = id
+
+  let sexp_of_t t =
+    let label_id = Objc.msg_send ~self:t ~cmd:(selector "label") ~typ:(returning Objc.id) in
+    let label = ocaml_string_from_nsstring label_id in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLBlitCommandEncoder>";
+                       Sexplib0.Sexp.Atom ("label: " ^ if label = "" then "<no label>" else label)]
 
   (* Inherits from CommandEncoder *)
   let end_encoding = CommandEncoder.end_encoding
@@ -309,6 +414,17 @@ end
 module Library = struct
   type t = id
 
+  let sexp_of_t t =
+    (* Libraries don't have a simple name property accessible directly.
+       We could get the device and its name, or function names, but let's keep it simple. *)
+    let device_id = Objc.msg_send ~self:t ~cmd:(selector "device") ~typ:(returning Objc.id) in
+    let device_name =
+      if is_nil device_id then "<no device>"
+      else Device.sexp_of_t device_id |> Sexplib0.Sexp.to_string
+    in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLLibrary>";
+                       Sexplib0.Sexp.Atom ("device: " ^ device_name)]
+
   let new_function_with_name self name =
     let function_name =
       Objc.msg_send ~self ~cmd:(selector "newFunctionWithName:")
@@ -340,6 +456,12 @@ end
 module Function = struct
   type t = id
 
+  let sexp_of_t t =
+    let name_id = Objc.msg_send ~self:t ~cmd:(selector "name") ~typ:(returning Objc.id) in
+    let name = ocaml_string_from_nsstring name_id in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLFunction>";
+                       Sexplib0.Sexp.Atom ("name: " ^ name)]
+
   let name self =
     Objc.msg_send ~self ~cmd:(selector "name") ~typ:(returning Objc.id)
     |> ocaml_string_from_nsstring
@@ -347,6 +469,18 @@ end
 
 module ComputePipelineState = struct
   type t = id
+
+  let sexp_of_t t =
+    let label_id = Objc.msg_send ~self:t ~cmd:(selector "label") ~typ:(returning Objc.id) in
+    let label = ocaml_string_from_nsstring label_id in
+    let device_id = Objc.msg_send ~self:t ~cmd:(selector "device") ~typ:(returning Objc.id) in
+    let device_name =
+      if is_nil device_id then "<no device>"
+      else Device.sexp_of_t device_id |> Sexplib0.Sexp.to_string
+    in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLComputePipelineState>";
+                       Sexplib0.Sexp.Atom ("label: " ^ if label = "" then "<no label>" else label);
+                       Sexplib0.Sexp.Atom ("device: " ^ device_name)]
 
   let max_total_threads_per_threadgroup self =
     Objc.msg_send ~self ~cmd:(selector "maxTotalThreadsPerThreadgroup") ~typ:(returning ulong)
@@ -372,6 +506,12 @@ end
 
 module ComputeCommandEncoder = struct
   type t = id
+
+  let sexp_of_t t =
+    let label_id = Objc.msg_send ~self:t ~cmd:(selector "label") ~typ:(returning Objc.id) in
+    let label = ocaml_string_from_nsstring label_id in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLComputeCommandEncoder>";
+                       Sexplib0.Sexp.Atom ("label: " ^ if label = "" then "<no label>" else label)]
 
   (* Inherits from CommandEncoder *)
   let end_encoding = CommandEncoder.end_encoding
@@ -469,6 +609,12 @@ end
 module SharedEventHandle = struct
   type t = id
 
+  let sexp_of_t t =
+    let label_id = Objc.msg_send ~self:t ~cmd:(selector "label") ~typ:(returning Objc.id) in
+    let label = ocaml_string_from_nsstring label_id in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLSharedEventHandle>";
+                       Sexplib0.Sexp.Atom ("label: " ^ if label = "" then "<no label>" else label)]
+
   let label self =
     Objc.msg_send ~self ~cmd:(selector "label") ~typ:(returning Objc.id)
     |> ocaml_string_from_nsstring
@@ -480,6 +626,10 @@ end
 module SharedEventListener = struct
   type t = id
 
+  let sexp_of_t _t =
+    (* Listeners don't have identifying properties like labels *)
+    Sexplib0.Sexp.Atom "<MTLSharedEventListener>"
+
   let init () =
     let cls = Objc.get_class "MTLSharedEventListener" in
     Objc.msg_send ~self:cls ~cmd:(selector "alloc") ~typ:(returning Objc.id) |> fun allocated_obj ->
@@ -490,6 +640,14 @@ end
 
 module SharedEvent = struct
   type t = id
+
+  let sexp_of_t t =
+    let label_id = Objc.msg_send ~self:t ~cmd:(selector "label") ~typ:(returning Objc.id) in
+    let label = ocaml_string_from_nsstring label_id in
+    let signaled_val = Objc.msg_send ~self:t ~cmd:(selector "signaledValue") ~typ:(returning ullong) in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLSharedEvent>";
+                       Sexplib0.Sexp.Atom ("label: " ^ if label = "" then "<no label>" else label);
+                       Sexplib0.Sexp.Atom ("signaledValue: " ^ Unsigned.ULLong.to_string signaled_val)]
 
   let signaled_value self =
     Objc.msg_send ~self ~cmd:(selector "signaledValue") ~typ:(returning ullong)

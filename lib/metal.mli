@@ -16,7 +16,7 @@ val from_nsarray : Runtime.Objc.objc_object Ctypes.structure Ctypes.ptr -> id ar
 (** Represents the GPU device capable of executing Metal commands. See
     {{:https://developer.apple.com/documentation/metal/mtldevice} MTLDevice} *)
 module Device : sig
-  type t
+  type t [@@deriving sexp_of]
 
   val create_system_default : unit -> t
   (** Returns the default Metal device for the system. See
@@ -27,7 +27,7 @@ end
 (** Options for configuring Metal resources like buffers and textures. See
     {{:https://developer.apple.com/documentation/metal/mtlresourceoptions} MTLResourceOptions} *)
 module ResourceOptions : sig
-  type t = Unsigned.ullong
+  type t = Unsigned.ullong [@@deriving sexp_of]
 
   val ullong : Unsigned.ullong Ctypes_static.typ
 
@@ -63,7 +63,7 @@ end
 (** Options for compiling Metal Shading Language (MSL) source code. See
     {{:https://developer.apple.com/documentation/metal/mtlcompileoptions} MTLCompileOptions} *)
 module CompileOptions : sig
-  type t
+  type t [@@deriving sexp_of]
 
   val init : unit -> t
   (** Creates a new, default set of compile options. *)
@@ -71,7 +71,7 @@ module CompileOptions : sig
   (** Specifies the version of the Metal Shading Language to use. See
       {{:https://developer.apple.com/documentation/metal/mtllanguageversion} MTLLanguageVersion} *)
   module LanguageVersion : sig
-    type t = ResourceOptions.t
+    type t = ResourceOptions.t [@@deriving sexp_of]
 
     val version_1_0 : t
     (** Deprecated. *)
@@ -90,7 +90,7 @@ module CompileOptions : sig
   (** Specifies the type of library to produce. See
       {{:https://developer.apple.com/documentation/metal/mtllibrarytype} MTLLibraryType} *)
   module LibraryType : sig
-    type t = ResourceOptions.t
+    type t = ResourceOptions.t [@@deriving sexp_of]
 
     val executable : t
     (** An executable library. *)
@@ -103,7 +103,7 @@ module CompileOptions : sig
       {{:https://developer.apple.com/documentation/metal/mtllibraryoptimizationlevel}
        MTLLibraryOptimizationLevel} *)
   module OptimizationLevel : sig
-    type t = ResourceOptions.t
+    type t = ResourceOptions.t [@@deriving sexp_of]
 
     val default : t
     (** Default optimization level. *)
@@ -131,7 +131,7 @@ end
 (** An interface to a Metal buffer object, representing a region of memory. See
     {{:https://developer.apple.com/documentation/metal/mtlbuffer} MTLBuffer} *)
 module Buffer : sig
-  type t
+  type t [@@deriving sexp_of]
 
   val contents : t -> unit Ctypes_static.ptr
   (** Returns a pointer to the buffer's contents. See
@@ -144,7 +144,7 @@ module Buffer : sig
   (** Represents a range within a buffer or collection. See
       {{:https://developer.apple.com/documentation/foundation/nsrange} NSRange} *)
   module NSRange : sig
-    type t
+    type t [@@deriving sexp_of]
 
     val location : t -> Unsigned.ulong
     (** The starting location (index) of the range. *)
@@ -171,7 +171,7 @@ end
 (** Represents a single Metal shader function. See
     {{:https://developer.apple.com/documentation/metal/mtlfunction} MTLFunction} *)
 module Function : sig
-  type t
+  type t [@@deriving sexp_of]
 
   val name : t -> string
   (** Returns the name of the function. See
@@ -181,7 +181,7 @@ end
 (** Represents a collection of compiled Metal shader functions. See
     {{:https://developer.apple.com/documentation/metal/mtllibrary} MTLLibrary} *)
 module Library : sig
-  type t
+  type t [@@deriving sexp_of]
 
   val new_function_with_name : t -> string -> Function.t
   (** Creates a function object for a given function name within the library. See
@@ -203,7 +203,7 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlcomputepipelinestate}
      MTLComputePipelineState} *)
 module ComputePipelineState : sig
-  type t
+  type t [@@deriving sexp_of]
 
   val max_total_threads_per_threadgroup : t -> Unsigned.ulong
   (** The maximum number of threads in a threadgroup for this pipeline state. See
@@ -224,7 +224,7 @@ end
 (** An encoder for issuing commands common to all command encoder types. See
     {{:https://developer.apple.com/documentation/metal/mtlcommandencoder} MTLCommandEncoder} *)
 module CommandEncoder : sig
-  type t
+  type t [@@deriving sexp_of]
 
   val end_encoding : t -> unit
   (** Declares that all command generation from this encoder is complete. See
@@ -244,7 +244,7 @@ end
 (** Represents a GPU synchronization primitive. See
     {{:https://developer.apple.com/documentation/metal/mtlfence} MTLFence} *)
 module Fence : sig
-  type t
+  type t [@@deriving sexp_of]
 
   val label : t -> string
   (** Returns the label associated with the fence. See
@@ -267,7 +267,7 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlsharedeventlistener}
      MTLSharedEventListener} *)
 module SharedEventListener : sig
-  type t
+  type t [@@deriving sexp_of]
   (** The type representing a shared event listener. *)
 
   val init : unit -> t
@@ -282,7 +282,7 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlsharedeventhandle} MTLSharedEventHandle}
 *)
 module SharedEventHandle : sig
-  type t
+  type t [@@deriving sexp_of]
   (** The type representing a shared event handle. *)
 
   val label : t -> string
@@ -292,7 +292,7 @@ end
 (** An event that can be signaled and waited on by the CPU and GPU across process boundaries. See
     {{:https://developer.apple.com/documentation/metal/mtlsharedevent} MTLSharedEvent} *)
 module SharedEvent : sig
-  type t
+  type t [@@deriving sexp_of]
   (** The type representing a shared event. *)
 
   val signaled_value : t -> Unsigned.ullong
@@ -335,7 +335,7 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlblitcommandencoder} MTLBlitCommandEncoder}
 *)
 module BlitCommandEncoder : sig
-  type t
+  type t [@@deriving sexp_of]
 
   val end_encoding : t -> unit
   (** Inherited from CommandEncoder. *)
@@ -397,7 +397,7 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder}
      MTLComputeCommandEncoder} *)
 module ComputeCommandEncoder : sig
-  type t
+  type t [@@deriving sexp_of]
 
   val end_encoding : t -> unit
   (** Inherited from CommandEncoder. *)
@@ -490,7 +490,7 @@ end
 (** A container for encoded commands that will be executed by the GPU. See
     {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer} MTLCommandBuffer} *)
 module CommandBuffer : sig
-  type t
+  type t [@@deriving sexp_of]
 
   val commit : t -> unit
   (** Submits the command buffer for execution. See
@@ -540,7 +540,7 @@ end
 (** A queue for submitting command buffers to a device. See
     {{:https://developer.apple.com/documentation/metal/mtlcommandqueue} MTLCommandQueue} *)
 module CommandQueue : sig
-  type t
+  type t [@@deriving sexp_of]
 
   val command_buffer : t -> CommandBuffer.t
   (** Creates a new command buffer associated with this queue. See

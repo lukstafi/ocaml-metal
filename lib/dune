@@ -2,4 +2,5 @@
  (public_name metal)
  (flags :standard -ccopt "-framework CoreGraphics" -ccopt "-framework Metal")
  (modules metal)
- (libraries camlkit-base.runtime camlkit-base.CoreGraphics))
+ (preprocess (pps ppx_sexp_conv))
+ (libraries sexplib0 camlkit-base.runtime camlkit-base.CoreGraphics))
