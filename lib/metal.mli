@@ -22,6 +22,39 @@ module Device : sig
   (** Returns the default Metal device for the system. See
       {{:https://developer.apple.com/documentation/metal/1433401-mtlcreatesystemdefaultdevice}
        MTLCreateSystemDefaultDevice} *)
+
+  (** Represents the dimensions of a grid or threadgroup (width, height, depth). *)
+  type device_size = { width : int; height : int; depth : int }
+  val sexp_of_device_size : device_size -> Sexplib0.Sexp.t
+
+  (** Describes the level of support for argument buffers. See
+      {{:https://developer.apple.com/documentation/metal/mtlargumentbufferstier} MTLArgumentBuffersTier} *)
+  module ArgumentBuffersTier : sig
+    type t =
+      | Tier1
+      | Tier2
+    val sexp_of_t : t -> Sexplib0.Sexp.t
+  end
+
+  (** A record containing static attributes of the Metal device relevant for compute. *)
+  type attributes = {
+    name : string;
+    registry_id : Unsigned.ULLong.t;
+    max_threads_per_threadgroup : device_size;
+    max_buffer_length : Unsigned.ULong.t;
+    max_threadgroup_memory_length : Unsigned.ULong.t;
+    argument_buffers_support : ArgumentBuffersTier.t;
+    recommended_max_working_set_size : Unsigned.ULLong.t;
+    is_low_power : bool;
+    is_removable : bool;
+    is_headless : bool;
+    has_unified_memory : bool;
+    peer_count : Unsigned.ULong.t;
+    peer_group_id : Unsigned.ULLong.t;
+  } [@@deriving sexp_of]
+
+  val get_attributes : t -> attributes
+  (** Fetches the static compute-relevant attributes of the device. *)
 end
 
 (** Options for configuring Metal resources like buffers and textures. See

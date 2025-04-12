@@ -1,6 +1,7 @@
 open Runtime
 open Ctypes
 module CG = CoreGraphics
+open Sexplib0.Sexp_conv
 
 type id = Objc.objc_object structure Ctypes_static.ptr
 
@@ -58,6 +59,119 @@ module Device = struct
     let device = Foreign.foreign "MTLCreateSystemDefaultDevice" (void @-> returning Objc.id) () in
     if is_nil device then failwith "Failed to create Metal device";
     device
+
+  (* NEW: Attributes Record and related types *)
+  type device_size = { width : int; height : int; depth : int } [@@deriving sexp_of]
+
+  module ArgumentBuffersTier = struct
+    type t =
+      | Tier1
+      | Tier2
+    [@@deriving sexp_of]
+
+    let from_llong (i : Signed.LLong.t) =
+      if Signed.LLong.equal i (Signed.LLong.of_int 0) then Tier1
+      else if Signed.LLong.equal i (Signed.LLong.of_int 1) then Tier2
+      else invalid_arg ("Unknown ArgumentBuffersTier: " ^ Signed.LLong.to_string i)
+  end
+
+  (* Define the MTLSize struct type locally for use in get_attributes *)
+  type mtlsize
+  let mtlsize_t : mtlsize structure typ = structure "MTLSize"
+  let width_field = field mtlsize_t "width" ulong
+  let height_field = field mtlsize_t "height" ulong
+  let depth_field = field mtlsize_t "depth" ulong
+  let () = seal mtlsize_t
+
+  open Sexplib0.Sexp_conv (* Open standard converters for @@deriving sexp_of *)
+  (* Provide local modules with manual sexp converters for Unsigned types *)
+  type ulong = Unsigned.ULong.t
+  let sexp_of_ulong t = Sexplib0.Sexp.Atom (Unsigned.ULong.to_string t)
+  type ullong = Unsigned.ULLong.t
+  let sexp_of_ullong t = Sexplib0.Sexp.Atom (Unsigned.ULLong.to_string t)
+
+  type attributes = {
+    name : string;
+    registry_id : ullong;
+    max_threads_per_threadgroup : device_size;
+    max_buffer_length : ulong;
+    max_threadgroup_memory_length : ulong;
+    argument_buffers_support : ArgumentBuffersTier.t;
+    recommended_max_working_set_size : ullong;
+    is_low_power : bool;
+    is_removable : bool;
+    is_headless : bool;
+    has_unified_memory : bool;
+    peer_count : ulong;
+    peer_group_id : ullong;
+  } [@@deriving sexp_of]
+
+  (* NEW: Function to get attributes *)
+  let get_attributes (self : t) : attributes =
+    let name =
+      ocaml_string_from_nsstring (Objc.msg_send ~self ~cmd:(selector "name") ~typ:(returning Objc.id))
+    in
+    let registry_id =
+      Objc.msg_send ~self ~cmd:(selector "registryID") ~typ:(returning ullong)
+    in
+    let max_threads_per_threadgroup_struct : device_size =
+        (* Use the locally defined mtlsize_t struct *)
+        let size_struct : mtlsize Ctypes.structure =
+          Objc.msg_send_stret
+            ~self
+            ~cmd:(selector "maxThreadsPerThreadgroup")
+            ~typ:(returning mtlsize_t) (* Return the local struct type *)
+            ~return_type:mtlsize_t    (* Pass struct type for stret size check *)
+        in
+        { width = Unsigned.ULong.to_int (getf size_struct width_field);
+          height = Unsigned.ULong.to_int (getf size_struct height_field);
+          depth = Unsigned.ULong.to_int (getf size_struct depth_field); }
+    in
+    let max_buffer_length =
+      Objc.msg_send ~self ~cmd:(selector "maxBufferLength") ~typ:(returning ulong)
+    in
+    let max_threadgroup_memory_length =
+      Objc.msg_send ~self ~cmd:(selector "maxThreadgroupMemoryLength") ~typ:(returning ulong)
+    in
+    let argument_buffers_support_val =
+       Objc.msg_send ~self ~cmd:(selector "argumentBuffersSupport") ~typ:(returning llong) (* Enum usually maps to long long *)
+    in
+    let argument_buffers_support = ArgumentBuffersTier.from_llong argument_buffers_support_val in
+    let recommended_max_working_set_size =
+       Objc.msg_send ~self ~cmd:(selector "recommendedMaxWorkingSetSize") ~typ:(returning ullong)
+    in
+    let is_low_power =
+       Objc.msg_send ~self ~cmd:(selector "isLowPower") ~typ:(returning bool)
+    in
+    let is_removable =
+       Objc.msg_send ~self ~cmd:(selector "isRemovable") ~typ:(returning bool)
+    in
+    let is_headless =
+       Objc.msg_send ~self ~cmd:(selector "isHeadless") ~typ:(returning bool)
+    in
+    let has_unified_memory =
+       Objc.msg_send ~self ~cmd:(selector "hasUnifiedMemory") ~typ:(returning bool)
+    in
+    let peer_count =
+        Objc.msg_send ~self ~cmd:(selector "peerCount") ~typ:(returning ulong)
+    in
+    let peer_group_id =
+        Objc.msg_send ~self ~cmd:(selector "peerGroupID") ~typ:(returning ullong)
+    in
+    { name;
+      registry_id;
+      max_threads_per_threadgroup = max_threads_per_threadgroup_struct;
+      max_buffer_length;
+      max_threadgroup_memory_length;
+      argument_buffers_support;
+      recommended_max_working_set_size;
+      is_low_power;
+      is_removable;
+      is_headless;
+      has_unified_memory;
+      peer_count;
+      peer_group_id;
+    }
 end
 
 module CommandQueue = struct
