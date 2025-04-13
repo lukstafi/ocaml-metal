@@ -24,16 +24,14 @@ module Device : sig
        MTLCreateSystemDefaultDevice} *)
 
   (** Represents the dimensions of a grid or threadgroup (width, height, depth). *)
-  type device_size = { width : int; height : int; depth : int }
-  val sexp_of_device_size : device_size -> Sexplib0.Sexp.t
+  type device_size = { width : int; height : int; depth : int } [@@deriving sexp_of]
 
   (** Describes the level of support for argument buffers. See
       {{:https://developer.apple.com/documentation/metal/mtlargumentbufferstier} MTLArgumentBuffersTier} *)
   module ArgumentBuffersTier : sig
     type t =
       | Tier1
-      | Tier2
-    val sexp_of_t : t -> Sexplib0.Sexp.t
+      | Tier2 [@@deriving sexp_of]
   end
 
   (** A record containing static attributes of the Metal device relevant for compute. *)
