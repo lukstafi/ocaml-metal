@@ -1,3 +1,9 @@
 (executable
  (name properties)
+ (modules properties)
+ (libraries metal camlkit-base.runtime))
+
+(executable
+ (name sync_test)
+ (modules sync_test)
  (libraries metal camlkit-base.runtime))
