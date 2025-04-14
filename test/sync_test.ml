@@ -12,15 +12,17 @@ let compute_kernel_source = "
   }
 "
 
-let () =
+let%expect_test "Metal synchronization between queues and encoders" =
   (* Initialize Metal *)
   let device = Metal.Device.create_system_default () in
   Printf.printf "Metal device: %s\n" (Metal.Device.get_attributes device).name;
+  [%expect {| Metal device: .* (regexp) |}];
 
   (* Create two separate command queues to demonstrate queue synchronization *)
   let command_queue1 = Metal.CommandQueue.on_device device in
   let command_queue2 = Metal.CommandQueue.on_device device in
   Printf.printf "Created two command queues\n";
+  [%expect {| Created two command queues |}];
 
   (* Create a shared event for synchronization between queues *)
   let shared_event = Metal.SharedEvent.on_device device in
@@ -53,6 +55,7 @@ let () =
   let function_name = "increment_kernel" in
   let compute_function = Metal.Library.new_function_with_name library function_name in
   Printf.printf "Kernel function '%s' compiled\n" function_name;
+  [%expect {| Kernel function 'increment_kernel' compiled |}];
   
   (* Create pipeline state *)
   let pipeline_state = Metal.ComputePipelineState.on_device device compute_function in
@@ -85,6 +88,7 @@ let () =
   
   (* Commit the first command buffer *)
   Printf.printf "Committing first command buffer\n";
+  [%expect {| Committing first command buffer |}];
   Metal.CommandBuffer.commit command_buffer1;
   
   (* Second queue operations - must wait for the first queue *)
@@ -118,12 +122,15 @@ let () =
   
   (* Commit the second command buffer *)
   Printf.printf "Committing second command buffer\n";
+  [%expect {| Committing second command buffer |}];
   Metal.CommandBuffer.commit command_buffer2;
   
   (* CPU Blocking Synchronization - wait for the second command buffer to complete *)
   Printf.printf "CPU waiting for completion...\n";
+  [%expect {| CPU waiting for completion... |}];
   Metal.CommandBuffer.wait_until_completed command_buffer2;
   Printf.printf "GPU work completed\n";
+  [%expect {| GPU work completed |}];
   
   (* Use SharedEvent with timeout for a more flexible CPU sync example *)
   let third_signal_value = Unsigned.ULLong.of_int 3 in
@@ -138,10 +145,12 @@ let () =
   Metal.ComputeCommandEncoder.end_encoding compute_encoder3;
   
   Printf.printf "Committing third command buffer\n";
+  [%expect {| Committing third command buffer |}];
   Metal.CommandBuffer.commit command_buffer3;
   
   (* Wait for the event with timeout *)
   Printf.printf "CPU waiting for event with timeout...\n";
+  [%expect {| CPU waiting for event with timeout... |}];
   let timeout_ms = 1000 in (* 1 second timeout *)
   let completed = Metal.SharedEvent.wait_until_signaled_value shared_event third_signal_value ~timeout_ms in
   
@@ -150,8 +159,12 @@ let () =
   else
     Printf.printf "Timeout elapsed before event was signaled\n";
   
+  [%expect {| Event signaled within timeout |}];
+  
   (* Verify results - buffer should be incremented 3 times, so each value should be 3 *)
   Printf.printf "Verifying results...\n";
+  [%expect {| Verifying results... |}];
+  
   let errors = ref 0 in
   for i = 0 to array_length - 1 do
     let ptr = (coerce (ptr void) (ptr int) buffer_ptr) +@ i in
@@ -168,4 +181,7 @@ let () =
   else
     Printf.printf "Verification failed with %d errors.\n" !errors;
   
-  Printf.printf "Synchronization test completed.\n" 
+  [%expect {| Verification successful! All values are 3 as expected. |}];
+  
+  Printf.printf "Synchronization test completed.\n";
+  [%expect {| Synchronization test completed. |}] 

@@ -34,13 +34,15 @@ let saxpy_kernel_source =
   \    y[index] = (*a) * x[index] + y[index];\n\
   \  }\n"
 
-let () =
+let%expect_test "SAXPY kernel computation test" =
   (* 1. Initialize Metal *)
   let device = Metal.Device.create_system_default () in
   Printf.printf "Metal device created successfully.\n";
+  [%expect {| Metal device created successfully. |}];
 
   let command_queue = Metal.CommandQueue.on_device device in
   Printf.printf "Command queue created successfully.\n";
+  [%expect {| Command queue created successfully. |}];
 
   (* 2. Prepare Data *)
   let array_length = 1024 * 1024 in
@@ -66,6 +68,7 @@ let () =
   let buffer_y = Metal.Buffer.on_device device ~length:buffer_size options in
   let buffer_a = Metal.Buffer.on_device device ~length:(sizeof float) options in
   Printf.printf "Metal buffers created successfully.\n";
+  [%expect {| Metal buffers created successfully. |}];
 
   (* Copy data to buffers *)
   copy_bigarray_to_buffer x_ba buffer_x;
@@ -78,6 +81,7 @@ let () =
   Metal.Buffer.did_modify_range buffer_a a_range;
 
   Printf.printf "Data copied to buffers.\n";
+  [%expect {| Data copied to buffers. |}];
 
   (* 3. Compile the Kernel *)
   (* Create Compile Options *)
@@ -92,6 +96,7 @@ let () =
   let function_name = "saxpy_kernel" in
   let saxpy_function = Metal.Library.new_function_with_name library function_name in
   Printf.printf "Kernel function '%s' obtained.\n" function_name;
+  [%expect {| Kernel function 'saxpy_kernel' obtained. |}];
 
   (* 4. Create Pipeline State *)
   (* Assign nil_ptr to the location pointed by error_ptr *)
@@ -104,6 +109,7 @@ let () =
 
   let compute_encoder = Metal.CommandBuffer.compute_command_encoder command_buffer in
   Printf.printf "Command buffer and encoder created.\n";
+  [%expect {| Command buffer and encoder created. |}];
 
   (* 6. Set Up Encoder *)
   Metal.ComputeCommandEncoder.set_compute_pipeline_state compute_encoder pipeline_state;
@@ -129,15 +135,18 @@ let () =
   Metal.ComputeCommandEncoder.dispatch_threads compute_encoder ~threads_per_grid
     ~threads_per_threadgroup;
   Printf.printf "Kernel dispatched.\n";
+  [%expect {| Kernel dispatched. |}];
 
   (* 8. End Encoding and Commit *)
   Metal.ComputeCommandEncoder.end_encoding compute_encoder;
   Metal.CommandBuffer.commit command_buffer;
   Printf.printf "Command buffer committed.\n";
+  [%expect {| Command buffer committed. |}];
 
   (* 9. Wait for Completion *)
   Metal.CommandBuffer.wait_until_completed command_buffer;
   Printf.printf "Computation completed.\n";
+  [%expect {| Computation completed. |}];
 
   (* Check for command buffer errors *)
   let command_buffer_error = Metal.CommandBuffer.error command_buffer in
@@ -155,6 +164,9 @@ let () =
     bigarray_of_ptr array1 array_length float32 (coerce (ptr void) (ptr float) result_ptr)
   in
 
+  Printf.printf "Starting verification of results...\n";
+  [%expect {| Starting verification of results... |}];
+  
   let verify_results () =
     let tolerance = 1e-5 in
     let errors = ref 0 in
@@ -166,8 +178,11 @@ let () =
           Printf.printf "Verification failed at index %d: Expected %f, Got %f\n" i expected actual;
         incr errors)
     done;
-    if !errors = 0 then Printf.printf "Verification successful!\n"
-    else Printf.printf "Verification failed with %d errors.\n" !errors
+    if !errors = 0 then 
+      Printf.printf "Verification successful!\n"
+    else 
+      Printf.printf "Verification failed with %d errors.\n" !errors
   in
 
-  verify_results ()
+  verify_results ();
+  [%expect {| Verification successful! |}]

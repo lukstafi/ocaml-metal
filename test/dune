@@ -1,14 +1,7 @@
-(executable
- (name saxpy)
- (modules saxpy)
- (libraries metal))
-
-(executable
- (name test_sync)
- (modules test_sync)
- (libraries base stdio metal))
-
-(executable
- (name sync_test)
- (modules sync_test)
- (libraries metal))
+(library
+ (name metal_tests)
+ (modules saxpy test_sync sync_test)
+ (libraries base stdio metal)
+ (inline_tests)
+ (preprocess
+  (pps ppx_expect)))

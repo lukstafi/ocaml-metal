@@ -2,10 +2,12 @@ open Base
 open Stdio
 open Metal
 
-let () =
+let%expect_test "metal device synchronization between command queues" =
   (* 1. Initialize Metal device and create two command queues *)
   let device = Device.create_system_default () in
   printf "Device: %s\n" (Device.get_attributes device).name;
+  [%expect {| Device: .* (regexp) |}];
+  
   let queue1 = CommandQueue.on_device device in
   let queue2 = CommandQueue.on_device device in
 
@@ -36,6 +38,7 @@ let () =
   CommandBuffer.encode_signal_event command_buffer1 event event_value_to_signal;
   CommandBuffer.commit command_buffer1;
   printf "Committed command buffer 1 (copy 1->2, signal)\n";
+  [%expect {| Committed command buffer 1 (copy 1->2, signal) |}];
 
   (* 5. Submit command buffer 2 (Wait for event, Copy buffer2 -> buffer1) *)
   let command_buffer2 = CommandQueue.command_buffer queue2 in
@@ -47,11 +50,15 @@ let () =
   BlitCommandEncoder.end_encoding blit_encoder2;
   CommandBuffer.commit command_buffer2;
   printf "Committed command buffer 2 (wait, copy 2->1)\n";
+  [%expect {| Committed command buffer 2 (wait, copy 2->1) |}];
 
   (* 6. Wait on the CPU for the second command buffer to complete *)
   printf "Waiting for command buffer 2 to complete...\n";
+  [%expect {| Waiting for command buffer 2 to complete... |}];
+  
   CommandBuffer.wait_until_completed command_buffer2;
   printf "Command buffer 2 completed.\n";
+  [%expect {| Command buffer 2 completed. |}];
 
   (* 7. Verify the final state of the first buffer *)
   (* Synchronize buffer1 back to CPU before reading *)
@@ -63,8 +70,11 @@ let () =
   CommandBuffer.wait_until_completed sync_buffer;
 
   printf "Verifying buffer1 contents...\n";
+  [%expect {| Verifying buffer1 contents... |}];
+  
   let buffer1_final_ptr = Ctypes.coerce (Ctypes.ptr Ctypes.void) (Ctypes.ptr Ctypes.int) (Buffer.contents buffer1) in
   let all_match = ref true in
+  
   for i = 0 to Ctypes.(buffer_size / sizeof int) - 1 do
     let expected = i in
     let actual = Ctypes.(!@(buffer1_final_ptr +@ i)) in
@@ -76,7 +86,7 @@ let () =
 
   if !all_match then
     printf "Test PASSED: Buffer contents verified successfully.\n"
-  else (
+  else
     printf "Test FAILED: Buffer contents mismatch.\n";
-    Stdlib.exit 1
-  ) 
+  
+  [%expect {| Test PASSED: Buffer contents verified successfully. |}] 
