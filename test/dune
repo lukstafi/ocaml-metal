@@ -5,3 +5,8 @@
  (name saxpy)
  (modules saxpy)
  (libraries metal))
+
+(executable
+ (name test_sync)
+ (modules test_sync)
+ (libraries base stdio metal))
