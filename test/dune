@@ -1,6 +1,6 @@
 (library
  (name metal_tests)
- (modules saxpy test_sync sync_test)
+ (modules saxpy test_sync sync_test test_io_buffer)
  (libraries base stdio metal)
  (inline_tests)
  (preprocess

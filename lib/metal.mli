@@ -411,6 +411,79 @@ module SharedEvent : sig
        waitUntilSignaledValue:timeoutMS:} *)
 end
 
+(** An I/O command buffer that enables direct transfer between storage and GPU without CPU involvement.
+    Particularly useful for compute applications like Deep Learning and HPC. See
+    {{:https://developer.apple.com/documentation/metal/mtliocommandbuffer} MTLIOCommandBuffer} *)
+module IOCommandBuffer : sig
+  type t [@@deriving sexp_of]
+  (** The type representing an I/O command buffer. *)
+
+  val label : t -> string
+  (** Returns the label of the command buffer. See
+      {{:https://developer.apple.com/documentation/metal/mtliocommandbuffer/3113778-label} label} *)
+
+  val set_label : t -> string -> unit
+  (** Sets the label for the command buffer. See
+      {{:https://developer.apple.com/documentation/metal/mtliocommandbuffer/3113782-setlabel} setLabel:} *)
+
+  val commit : t -> unit
+  (** Submits the command buffer for execution. See
+      {{:https://developer.apple.com/documentation/metal/mtliocommandbuffer/3113774-commit} commit} *)
+
+  val wait_until_completed : t -> unit
+  (** Waits synchronously until the command buffer has completed execution. See
+      {{:https://developer.apple.com/documentation/metal/mtliocommandbuffer/3113785-waituntilcompleted}
+       waitUntilCompleted} *)
+
+  val add_completed_handler :
+    t ->
+    (Runtime__C.Types.object_t -> Runtime__C.Types.object_t -> unit) ->
+    (* Block: (MTLIOCommandBuffer* ) -> void *)
+    unit
+  (** Registers a block to be called when the command buffer completes execution. See
+      {{:https://developer.apple.com/documentation/metal/mtliocommandbuffer/3113772-addcompletedhandler}
+       addCompletedHandler:} *)
+
+  val status : t -> Unsigned.ULLong.t
+  (** Returns the execution status of the command buffer. See
+      {{:https://developer.apple.com/documentation/metal/mtliocommandbuffer/3113783-status} status} *)
+
+  val error : t -> id (* NSError *)
+  (** Returns an error object if the command buffer execution failed. See
+      {{:https://developer.apple.com/documentation/metal/mtliocommandbuffer/3113775-error} error} *)
+
+  val load_buffer :
+    self:t ->
+    buffer:Buffer.t ->
+    offset:int ->
+    size:int ->
+    source_handle:id ->
+    source_offset:Unsigned.ULLong.t ->
+    unit
+  (** Loads data from storage directly into a buffer without CPU involvement. This is 
+      particularly useful for deep learning applications that need to load large datasets
+      directly to GPU memory. See
+      {{:https://developer.apple.com/documentation/metal/mtliocommandbuffer/3113780-loadbuffer}
+       loadBuffer:offset:size:sourceHandle:sourceOffset:} *)
+
+  val encode_signal_event : t -> SharedEvent.t -> Unsigned.ullong -> unit
+  (** Encodes a command to signal an event with a specific value when the command buffer reaches
+      this point. See
+      {{:https://developer.apple.com/documentation/metal/mtliocommandbuffer/3113776-encodesignalevent}
+       encodeSignalEvent:value:} *)
+
+  val encode_wait_for_event : t -> SharedEvent.t -> Unsigned.ullong -> unit
+  (** Encodes a command to pause command buffer execution until an event reaches a specific value.
+      See
+      {{:https://developer.apple.com/documentation/metal/mtliocommandbuffer/3113777-encodewaitforevent}
+       encodeWaitForEvent:value:} *)
+
+  val on_device : Device.t -> t
+  (** Creates a new IO command buffer associated with a device. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/3106203-newiocommandbuffer}
+       newIOCommandBuffer} *)
+end
+
 (** An encoder for issuing data transfer (blit) commands. See
     {{:https://developer.apple.com/documentation/metal/mtlblitcommandencoder} MTLBlitCommandEncoder}
 *)

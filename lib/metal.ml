@@ -854,3 +854,72 @@ module SharedEvent = struct
       value
       (Unsigned.ULong.of_int timeout_ms) (* timeoutMS is NSUInteger which is ulong *)
 end
+
+(* MTLIOCommandBuffer for efficient I/O operations between storage and GPU *)
+module IOCommandBuffer = struct
+  type t = id
+
+  let sexp_of_t t =
+    let label_id = Objc.msg_send ~self:t ~cmd:(selector "label") ~typ:(returning Objc.id) in
+    let label = ocaml_string_from_nsstring label_id in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLIOCommandBuffer>";
+                       Sexplib0.Sexp.Atom ("label: " ^ if label = "" then "<no label>" else label)]
+
+  let label self =
+    Objc.msg_send ~self ~cmd:(selector "label") ~typ:(returning Objc.id)
+    |> ocaml_string_from_nsstring
+
+  let set_label self label_str =
+    Objc.msg_send ~self ~cmd:(selector "setLabel:")
+      ~typ:(Objc.id @-> returning void)
+      (new_string label_str)
+
+  let commit self = Objc.msg_send ~self ~cmd:(selector "commit") ~typ:(returning void)
+
+  let wait_until_completed self =
+    Objc.msg_send ~self ~cmd:(selector "waitUntilCompleted") ~typ:(returning void)
+
+  let add_completed_handler self handler_block =
+    (* block signature: void (^)(id<MTLIOCommandBuffer>)) *)
+    let block = Block.make handler_block ~args:[ Objc_type.id ] ~return:Objc_type.void in
+    Objc.msg_send ~self ~cmd:(selector "addCompletedHandler:")
+      ~typ:(ptr void @-> returning void) (* Pass block as ptr void *)
+      block
+
+  let status self =
+    Objc.msg_send ~self ~cmd:(selector "status") ~typ:(returning ullong)
+
+  let error self = Objc.msg_send ~self ~cmd:(selector "error") ~typ:(returning Objc.id)
+
+  (* Load data operations *)
+  let load_buffer ~self ~buffer ~offset ~size ~source_handle ~source_offset =
+    Objc.msg_send ~self
+      ~cmd:(selector "loadBuffer:offset:size:sourceHandle:sourceOffset:")
+      ~typ:(Objc.id @-> ulong @-> ulong @-> Objc.id @-> ullong @-> returning void)
+      buffer
+      (Unsigned.ULong.of_int offset)
+      (Unsigned.ULong.of_int size)
+      source_handle
+      source_offset
+
+  (* I/O command buffer signal and wait operations *)
+  let encode_signal_event self event value =
+    Objc.msg_send ~self
+      ~cmd:(selector "encodeSignalEvent:value:")
+      ~typ:(Objc.id @-> ullong @-> returning void)
+      event value
+
+  let encode_wait_for_event self event value =
+    Objc.msg_send ~self
+      ~cmd:(selector "encodeWaitForEvent:value:")
+      ~typ:(Objc.id @-> ullong @-> returning void)
+      event value
+
+  (* Create IO command buffer objects *)
+  let on_device self =
+    let io_command_buffer =
+      Objc.msg_send ~self ~cmd:(selector "newIOCommandBuffer") ~typ:(returning Objc.id)
+    in
+    if is_nil io_command_buffer then failwith "Failed to create Metal IO command buffer";
+    io_command_buffer
+end
