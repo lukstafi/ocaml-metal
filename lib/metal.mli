@@ -572,6 +572,14 @@ end
 module CommandBuffer : sig
   type t [@@deriving sexp_of]
 
+  val label : t -> string
+  (** Returns the label of the command buffer. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515831-label} label} *)
+
+  val set_label : t -> string -> unit
+  (** Sets the label for the command buffer. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515477-setlabel} setLabel:} *)
+
   val commit : t -> unit
   (** Submits the command buffer for execution. See
       {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer/1515649-commit} commit} *)

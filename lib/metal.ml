@@ -391,6 +391,15 @@ module CommandBuffer = struct
     Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLCommandBuffer>";
                        Sexplib0.Sexp.Atom ("label: " ^ if label = "" then "<no label>" else label)]
 
+  let label self =
+    Objc.msg_send ~self ~cmd:(selector "label") ~typ:(returning Objc.id)
+    |> ocaml_string_from_nsstring
+
+  let set_label self label_str =
+    Objc.msg_send ~self ~cmd:(selector "setLabel:")
+      ~typ:(Objc.id @-> returning void)
+      (new_string label_str)
+
   let commit self = Objc.msg_send ~self ~cmd:(selector "commit") ~typ:(returning void)
 
   let wait_until_completed self =

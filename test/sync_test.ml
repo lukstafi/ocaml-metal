@@ -62,8 +62,7 @@ let%expect_test "Metal synchronization between queues and encoders" =
   
   (* First queue operations *)
   let command_buffer1 = Metal.CommandQueue.command_buffer command_queue1 in
-  (* FIXME: set_label is not available in the CommandBuffer module *)
-  (* Metal.CommandBuffer.set_label command_buffer1 "First Queue Command Buffer"; *)
+  Metal.CommandBuffer.set_label command_buffer1 "First Queue Command Buffer";
   
   let compute_encoder1 = Metal.CommandBuffer.compute_command_encoder command_buffer1 in
   Metal.ComputeCommandEncoder.set_label compute_encoder1 "First Compute Encoder";
@@ -93,8 +92,7 @@ let%expect_test "Metal synchronization between queues and encoders" =
   
   (* Second queue operations - must wait for the first queue *)
   let command_buffer2 = Metal.CommandQueue.command_buffer command_queue2 in
-  (* FIXME: set_label is not available in the CommandBuffer module *)
-  (* Metal.CommandBuffer.set_label command_buffer2 "Second Queue Command Buffer"; *)
+  Metal.CommandBuffer.set_label command_buffer2 "Second Queue Command Buffer";
   
   (* Encode a wait for the shared event from the first queue *)
   Metal.CommandBuffer.encode_wait_for_event command_buffer2 shared_event signal_value;
