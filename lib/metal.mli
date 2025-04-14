@@ -360,6 +360,10 @@ module SharedEvent : sig
   (** Creates a new shared event associated with this device. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/2966686-newsharedevent}
        newSharedEvent} *)
+
+  val wait_until_signaled_value : t -> Unsigned.ullong -> timeout_ms:int -> bool
+  (** Waits until the event's signaled value reaches or exceeds the specified value, or a timeout occurs.
+      See {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2967403-waituntilsignaledvalue} waitUntilSignaledValue:timeoutMS:} *)
 end
 
 (** An encoder for issuing data transfer (blit) commands. See

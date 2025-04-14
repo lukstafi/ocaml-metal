@@ -801,4 +801,11 @@ module SharedEvent = struct
     let event = Objc.msg_send ~self ~cmd:(selector "newSharedEvent") ~typ:(returning Objc.id) in
     if is_nil event then failwith "Failed to create Metal shared event";
     event
+    
+  let wait_until_signaled_value self value ~timeout_ms =
+    Objc.msg_send ~self
+      ~cmd:(selector "waitUntilSignaledValue:timeoutMS:")
+      ~typ:(ullong @-> ulong @-> returning bool)
+      value
+      (Unsigned.ULong.of_int timeout_ms) (* timeoutMS is NSUInteger which is ulong *)
 end
