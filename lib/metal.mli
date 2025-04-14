@@ -23,18 +23,16 @@ module Device : sig
       {{:https://developer.apple.com/documentation/metal/1433401-mtlcreatesystemdefaultdevice}
        MTLCreateSystemDefaultDevice} *)
 
-  (** Represents the dimensions of a grid or threadgroup (width, height, depth). *)
   type device_size = { width : int; height : int; depth : int } [@@deriving sexp_of]
+  (** Represents the dimensions of a grid or threadgroup (width, height, depth). *)
 
   (** Describes the level of support for argument buffers. See
-      {{:https://developer.apple.com/documentation/metal/mtlargumentbufferstier} MTLArgumentBuffersTier} *)
+      {{:https://developer.apple.com/documentation/metal/mtlargumentbufferstier}
+       MTLArgumentBuffersTier} *)
   module ArgumentBuffersTier : sig
-    type t =
-      | Tier1
-      | Tier2 [@@deriving sexp_of]
+    type t = Tier1 | Tier2 [@@deriving sexp_of]
   end
 
-  (** A record containing static attributes of the Metal device relevant for compute. *)
   type attributes = {
     name : string;
     registry_id : Unsigned.ULLong.t;
@@ -49,7 +47,9 @@ module Device : sig
     has_unified_memory : bool;
     peer_count : Unsigned.ULong.t;
     peer_group_id : Unsigned.ULLong.t;
-  } [@@deriving sexp_of]
+  }
+  [@@deriving sexp_of]
+  (** A record containing static attributes of the Metal device relevant for compute. *)
 
   val get_attributes : t -> attributes
   (** Fetches the static compute-relevant attributes of the device. *)
@@ -162,7 +162,8 @@ end
 (** An interface to a Metal buffer object, representing a region of memory. See
     {{:https://developer.apple.com/documentation/metal/mtlbuffer} MTLBuffer} *)
 module Buffer : sig
-  type t [@@deriving sexp_of]
+  type t = private id [@@deriving sexp_of]
+  (** Buffer type is a subtype of Resource.t *)
 
   val contents : t -> unit Ctypes_static.ptr
   (** Returns a pointer to the buffer's contents. See
@@ -197,6 +198,48 @@ module Buffer : sig
   (** Creates a new buffer allocated on this device. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/1433429-newbufferwithlength}
        newBufferWithLength:options:} *)
+end
+
+(** A common interface for resources like buffers and textures. See
+    {{:https://developer.apple.com/documentation/metal/mtlresource} MTLResource} *)
+module Resource : sig
+  type t [@@deriving sexp_of]
+  (** The type representing a resource. *)
+
+  val of_buffer : Buffer.t -> t
+  (** Converts a Buffer to a Resource. *)
+
+  val label : t -> string
+  (** Returns the label associated with the resource. See
+      {{:https://developer.apple.com/documentation/metal/mtlresource/1516179-label} label} *)
+
+  val set_label : t -> string -> unit
+  (** Sets the label for the resource. See
+      {{:https://developer.apple.com/documentation/metal/mtlresource/1515898-setlabel} setLabel:} *)
+
+  val device : t -> Device.t
+  (** Returns the device this resource was created against. See
+      {{:https://developer.apple.com/documentation/metal/mtlresource/1515746-device} device} *)
+
+  val cpu_cache_mode : t -> Unsigned.ULLong.t
+  (** Returns the CPU cache mode used for the CPU mapping of this resource. See
+      {{:https://developer.apple.com/documentation/metal/mtlresource/1515743-cpucachemode}
+       cpuCacheMode} *)
+
+  val storage_mode : t -> Unsigned.ULLong.t
+  (** Returns the storage mode for this resource. See
+      {{:https://developer.apple.com/documentation/metal/mtlresource/1515677-storagemode}
+       storageMode} *)
+
+  val hazard_tracking_mode : t -> Unsigned.ULLong.t
+  (** Returns the hazard tracking mode for this resource. See
+      {{:https://developer.apple.com/documentation/metal/mtlresource/2866102-hazardtrackingmode}
+       hazardTrackingMode} *)
+
+  val resource_options : t -> Unsigned.ULLong.t
+  (** Returns the resource creation options for this resource. See
+      {{:https://developer.apple.com/documentation/metal/mtlresource/1516129-resourceoptions}
+       resourceOptions} *)
 end
 
 (** Represents a single Metal shader function. See
@@ -362,8 +405,10 @@ module SharedEvent : sig
        newSharedEvent} *)
 
   val wait_until_signaled_value : t -> Unsigned.ullong -> timeout_ms:int -> bool
-  (** Waits until the event's signaled value reaches or exceeds the specified value, or a timeout occurs.
-      See {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2967403-waituntilsignaledvalue} waitUntilSignaledValue:timeoutMS:} *)
+  (** Waits until the event's signaled value reaches or exceeds the specified value, or a timeout
+      occurs. See
+      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2967403-waituntilsignaledvalue}
+       waitUntilSignaledValue:timeoutMS:} *)
 end
 
 (** An encoder for issuing data transfer (blit) commands. See
@@ -395,7 +440,7 @@ module BlitCommandEncoder : sig
 
   val synchronize_resource :
     self:t ->
-    resource:id ->
+    resource:Resource.t ->
     (* MTLResource, Buffer is one *)
     unit
   (** Ensures that memory operations on a resource are complete before subsequent commands execute.

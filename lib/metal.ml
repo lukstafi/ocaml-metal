@@ -449,6 +449,42 @@ module CommandEncoder = struct
       (new_string label_str)
 end
 
+(* Resource protocol *)
+module Resource = struct
+  type t = id
+
+  let sexp_of_t t =
+    let label_id = Objc.msg_send ~self:t ~cmd:(selector "label") ~typ:(returning Objc.id) in
+    let label = ocaml_string_from_nsstring label_id in
+    Sexplib0.Sexp.List [Sexplib0.Sexp.Atom "<MTLResource>";
+                       Sexplib0.Sexp.Atom ("label: " ^ if label = "" then "<no label>" else label)]
+
+  let of_buffer (buffer : Buffer.t) : t = (buffer :> id)
+
+  let label self =
+    Objc.msg_send ~self ~cmd:(selector "label") ~typ:(returning Objc.id)
+    |> ocaml_string_from_nsstring
+
+  let set_label self label_str =
+    Objc.msg_send ~self ~cmd:(selector "setLabel:")
+      ~typ:(Objc.id @-> returning void)
+      (new_string label_str)
+
+  let device self = Objc.msg_send ~self ~cmd:(selector "device") ~typ:(returning Objc.id)
+
+  let cpu_cache_mode self =
+    Objc.msg_send ~self ~cmd:(selector "cpuCacheMode") ~typ:(returning ullong)
+
+  let storage_mode self =
+    Objc.msg_send ~self ~cmd:(selector "storageMode") ~typ:(returning ullong)
+
+  let hazard_tracking_mode self =
+    Objc.msg_send ~self ~cmd:(selector "hazardTrackingMode") ~typ:(returning ullong) 
+
+  let resource_options self =
+    Objc.msg_send ~self ~cmd:(selector "resourceOptions") ~typ:(returning ullong)
+end
+
 (* Fences *)
 module Fence = struct
   type t = id
@@ -506,7 +542,7 @@ module BlitCommandEncoder = struct
   let synchronize_resource ~self ~resource =
     Objc.msg_send ~self ~cmd:(selector "synchronizeResource:")
       ~typ:(Objc.id @-> returning void)
-      resource (* Resource is MTLResource, Buffer is one *)
+      (resource : Resource.t :> id) (* Accept Resource.t and coerce to id *)
 
   let update_fence self (fence : Fence.t) =
     Objc.msg_send ~self ~cmd:(selector "updateFence:") ~typ:(Objc.id @-> returning void) fence

@@ -21,7 +21,7 @@ let () =
 
   (* Initialize buffer1 with some data *)
   let buffer1_ptr = Ctypes.coerce (Ctypes.ptr Ctypes.void) (Ctypes.ptr Ctypes.int) (Buffer.contents buffer1) in
-  for i = 0 to (buffer_size / sizeof Ctypes.int) - 1 do
+  for i = 0 to Ctypes.(buffer_size / sizeof int) - 1 do
     Ctypes.(buffer1_ptr +@ i <-@ i)
   done;
   Buffer.did_modify_range buffer1 (Buffer.NSRange.make ~location:0 ~length:buffer_size);
@@ -29,9 +29,9 @@ let () =
   (* 4. Submit command buffer 1 (Copy buffer1 -> buffer2, Signal event) *)
   let command_buffer1 = CommandQueue.command_buffer queue1 in
   let blit_encoder1 = CommandBuffer.blit_command_encoder command_buffer1 in
-  BlitCommandEncoder.synchronize_resource ~self:blit_encoder1 ~resource:(buffer1 :> id);
+  BlitCommandEncoder.synchronize_resource ~self:blit_encoder1 ~resource:(Resource.of_buffer buffer1);
   BlitCommandEncoder.copy_from_buffer ~self:blit_encoder1 ~source_buffer:buffer1 ~source_offset:0 ~destination_buffer:buffer2 ~destination_offset:0 ~size:buffer_size;
-  BlitCommandEncoder.synchronize_resource ~self:blit_encoder1 ~resource:(buffer2 :> id);
+  BlitCommandEncoder.synchronize_resource ~self:blit_encoder1 ~resource:(Resource.of_buffer buffer2);
   BlitCommandEncoder.end_encoding blit_encoder1;
   CommandBuffer.encode_signal_event command_buffer1 event event_value_to_signal;
   CommandBuffer.commit command_buffer1;
@@ -41,9 +41,9 @@ let () =
   let command_buffer2 = CommandQueue.command_buffer queue2 in
   CommandBuffer.encode_wait_for_event command_buffer2 event event_value_to_signal;
   let blit_encoder2 = CommandBuffer.blit_command_encoder command_buffer2 in
-  BlitCommandEncoder.synchronize_resource ~self:blit_encoder2 ~resource:(buffer2 :> id);
+  BlitCommandEncoder.synchronize_resource ~self:blit_encoder2 ~resource:(Resource.of_buffer buffer2);
   BlitCommandEncoder.copy_from_buffer ~self:blit_encoder2 ~source_buffer:buffer2 ~source_offset:0 ~destination_buffer:buffer1 ~destination_offset:0 ~size:buffer_size;
-  BlitCommandEncoder.synchronize_resource ~self:blit_encoder2 ~resource:(buffer1 :> id);
+  BlitCommandEncoder.synchronize_resource ~self:blit_encoder2 ~resource:(Resource.of_buffer buffer1);
   BlitCommandEncoder.end_encoding blit_encoder2;
   CommandBuffer.commit command_buffer2;
   printf "Committed command buffer 2 (wait, copy 2->1)\n";
@@ -57,7 +57,7 @@ let () =
   (* Synchronize buffer1 back to CPU before reading *)
   let sync_buffer = CommandQueue.command_buffer queue1 in (* Use any queue *)
   let sync_encoder = CommandBuffer.blit_command_encoder sync_buffer in
-  BlitCommandEncoder.synchronize_resource ~self:sync_encoder ~resource:(buffer1 :> id);
+  BlitCommandEncoder.synchronize_resource ~self:sync_encoder ~resource:(Resource.of_buffer buffer1);
   BlitCommandEncoder.end_encoding sync_encoder;
   CommandBuffer.commit sync_buffer;
   CommandBuffer.wait_until_completed sync_buffer;
@@ -65,7 +65,7 @@ let () =
   printf "Verifying buffer1 contents...\n";
   let buffer1_final_ptr = Ctypes.coerce (Ctypes.ptr Ctypes.void) (Ctypes.ptr Ctypes.int) (Buffer.contents buffer1) in
   let all_match = ref true in
-  for i = 0 to (buffer_size / sizeof Ctypes.int) - 1 do
+  for i = 0 to Ctypes.(buffer_size / sizeof int) - 1 do
     let expected = i in
     let actual = Ctypes.(!@(buffer1_final_ptr +@ i)) in
     if actual <> expected then (
@@ -78,5 +78,5 @@ let () =
     printf "Test PASSED: Buffer contents verified successfully.\n"
   else (
     printf "Test FAILED: Buffer contents mismatch.\n";
-    exit 1
+    Stdlib.exit 1
   ) 
