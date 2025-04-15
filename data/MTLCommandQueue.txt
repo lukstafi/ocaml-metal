@@ -1,0 +1,55 @@
+Source: https://developer.apple.com/documentation/metal/mtlcommandqueue?language=objc
+Protocol
+MTLCommandQueue
+An instance you use to create, submit, and schedule command buffers to a specific GPU device to run the commands within those buffers.
+@protocol MTLCommandQueue
+Overview
+A command queue maintains an ordered list of command buffers. You use a command queue to:
+Create command buffers, which you fill with commands for the GPU device that creates the queue
+Submit command buffers to run on that GPU
+Create a command queue from an MTLDevice instance by calling its newCommandQueue or newCommandQueueWithMaxCommandBufferCount: method. Typically, you create one or more command queues when your app launches and then keep them throughout your app’s lifetime.
+With each MTLCommandQueue instance you create, you can create MTLCommandBuffer instances for that queue by calling its commandBuffer or commandBufferWithUnretainedReferences method.
+Note
+Each command queue is thread-safe and allows you to encode commands in multiple command buffers simultaneously.
+For more information about command buffers and encoding GPU commands to them — such as rendering images and computing data in parallel — see Setting Up a Command Structure.
+Topics
+Creating Command Buffers
+- commandBufferWithDescriptor:
+Returns a command buffer from the command queue that you configure with a descriptor.
+Required
+- commandBuffer
+Returns a command buffer from the command queue that maintains strong references to resources.
+Required
+- commandBufferWithUnretainedReferences
+Returns a command buffer from the command queue that doesn’t maintain strong references to resources.
+Required
+Attaching Residency Sets
+- addResidencySet:
+Attaches a residency set to the queue, which Metal attaches to its command buffers as you commit them.
+Required
+- addResidencySets:count:
+Attaches multiple residency sets to the queue, which Metal attaches to its command buffers as you commit them.
+Required
+Detaching Residency Sets
+- removeResidencySet:
+Detaches a residency set from the command queue, which prevents Metal from attaching it to the queue’s command buffers as you commit them.
+Required
+- removeResidencySets:count:
+Detaches multiple residency sets from the command queue, which prevents Metal from attaching them to the queue’s command buffers as you commit them.
+Required
+Identifying the Command Queue
+device
+The GPU device that creates the command queue.
+Required
+label
+An optional name that can help you identify the command queue.
+Required
+Deprecated
+- insertDebugCaptureBoundary
+Informs Xcode about when GPU Frame Capture starts and stops.
+Required
+Deprecated
+Relationships
+Inherits From
+NSObject
+Current page is MTLCommandQueue

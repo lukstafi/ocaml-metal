@@ -1,0 +1,10 @@
+Source: https://developer.apple.com/documentation/metal/mtlcreatesystemdefaultdevice()?language=objc
+Function
+MTLCreateSystemDefaultDevice
+Returns the device instance Metal selects as the default.
+id<MTLDevice> MTLCreateSystemDefaultDevice(void);
+Return Value
+A device object.
+Discussion
+In macOS, in order for the system to provide a default Metal device object, you must link to the Core Graphics framework. You usually need to do this explicitly if you’re writing apps that don’t use graphics by default, such as command line tools.
+Current page is MTLCreateSystemDefaultDevice

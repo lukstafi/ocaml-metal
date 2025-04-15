@@ -1,0 +1,171 @@
+Source: https://developer.apple.com/documentation/metal/mtlcomputecommandencoder?language=objc
+Protocol
+MTLComputeCommandEncoder
+An interface for dispatching commands to encode in a compute pass.
+iOS 8.0+
+Mac Catalyst 13.1+
+macOS 10.11+
+tvOS 9.0+
+visionOS 1.0+
+@protocol MTLComputeCommandEncoder
+Overview
+You create compute command encoders by calling the computeCommandEncoderWithDispatchType: method of the MTLCommandBuffer instance you’re using to encode your compute pass. You can encode multiple commands to execute as part of a single pass of the encoder.
+To encode kernel function calls:
+Configure an MTLComputePipelineState instance with a kernel, using a method such as newComputePipelineStateWithFunction:error:. See Creating Compute Pipeline States for all MTLDevice methods that create a new pipeline state for your command encoder.
+Set the pipeline state with the setComputePipelineState: method on your command encoder.
+Provide parameters for your compute kernel by binding information to kernel arguments. Examples of methods that bind data for access on the GPU are setBuffer:offset:atIndex: and setTexture:atIndex:.
+Encode compute commands that call your kernel by either Dispatching Kernel Calls Directly or Dispatching from Indirect Command Buffers.
+Call endEncoding to finish encoding the kernel call of the compute pass.
+Important
+Call endEncoding on any existing compute command encoder before releasing it or creating one.
+After adding all commands to your compute command encoder, use the commit method to submit work to the GPU.
+Topics
+Configuring the Pipeline State
+Configure a compute pipeline state to describe the runtime environment of an encoder.
+- setComputePipelineState:
+Configures the compute encoder with a pipeline state instance for subsequent kernel calls.
+Required
+dispatchType
+The dispatch type to use when submitting compute work to the GPU.
+Required
+Encoding Buffers
+Encode buffers to provide their data on the GPU as kernel arguments.
+- setBuffer:offset:atIndex:
+Binds a buffer to the buffer argument table, allowing compute kernels to access its data on the GPU.
+Required
+- setBuffer:offset:attributeStride:atIndex:
+Binds a buffer with a stride to the buffer argument table, allowing compute kernels to access its data on the GPU.
+Required
+- setBuffers:offsets:withRange:
+Binds multiple buffers to the buffer argument table at once, allowing compute kernels to access their data on the GPU.
+Required
+- setBuffers:offsets:attributeStrides:withRange:
+Binds multiple buffers with data in stride to the buffer argument table at once, allowing compute kernels to access their data on the GPU.
+Required
+- setBufferOffset:atIndex:
+Changes where the data begins in a buffer already bound to the buffer argument table.
+Required
+- setBufferOffset:attributeStride:atIndex:
+Changes where the data begins and the distance between adjacent elements in a buffer already bound to the buffer argument table.
+Required
+Encoding Raw Bytes
+Encode bytes directly from the CPU as a kernel argument, without creating an intermediate buffer.
+- setBytes:length:atIndex:
+Copies data directly to the GPU to populate an entry in the buffer argument table.
+Required
+- setBytes:length:attributeStride:atIndex:
+Copies data with a given stride directly to the GPU to populate an entry in the buffer argument table.
+Required
+Encoding Textures
+Encode textures to provide access on the GPU as kernel arguments.
+- setTexture:atIndex:
+Binds a texture to the texture argument table, allowing compute kernels to access its data on the GPU.
+Required
+- setTextures:withRange:
+Binds multiple textures to the texture argument table, allowing compute kernels to access their data on the GPU.
+Required
+Encoding Texture Sampler States
+Encode texture samplers to provide access on the GPU as kernel arguments.
+- setSamplerState:atIndex:
+Encodes a texture sampler, allowing compute kernels to use it for sampling textures on the GPU.
+Required
+- setSamplerState:lodMinClamp:lodMaxClamp:atIndex:
+Encodes a texture sampler with a custom level of detail clamping, allowing compute kernels to use it for sampling textures on the GPU.
+Required
+- setSamplerStates:withRange:
+Encodes multiple texture samplers, allowing compute kernels to use them for sampling textures on the GPU.
+Required
+- setSamplerStates:lodMinClamps:lodMaxClamps:withRange:
+Encodes multiple texture samplers with custom levels of detail clamping, allowing compute kernels to use them for sampling textures on the GPU.
+Required
+Encoding Function Tables
+Encode function information for use by a compute kernel, providing access to function pointers.
+- setVisibleFunctionTable:atBufferIndex:
+Binds a visible function table to the buffer argument table, allowing you to call its functions on the GPU.
+Required
+- setVisibleFunctionTables:withBufferRange:
+Binds multiple visible function tables to the buffer argument table, allowing you to call their functions on the GPU.
+Required
+- setIntersectionFunctionTables:withBufferRange:
+Binds multiple intersection function tables to the buffer argument table, allowing you to call their functions on the GPU.
+Required
+Encoding Acceleration Structures
+Access acceleration structure instances in an intersection function.
+- setAccelerationStructure:atBufferIndex:
+Binds an acceleration structure to the buffer argument table, allowing functions to access it on the GPU.
+Required
+- setIntersectionFunctionTable:atBufferIndex:
+Binds an intersection function table to the buffer argument table, making it callable in your Metal shaders.
+Required
+Encoding Resident Resources
+Access resources that the CPU allocates on the GPU during your compute pass without a copy of the data.
+- useResource:usage:
+Ensures kernel calls that the system encodes in subsequent commands have access to a resource.
+Required
+- useResources:count:usage:
+Ensures kernel calls that the system encodes in subsequent commands have access to multiple resources.
+Required
+- useHeap:
+Ensures the shaders in the render pass’s subsequent draw commands have access to all of the resources you allocate from a heap.
+Required
+- useHeaps:count:
+Ensures the shaders in the render pass’s subsequent draw commands have access to all of the resources you allocate from multiple heaps.
+Required
+Encoding Tile Memory Usage
+Reserve space in GPU tile memory for threadgroups and imageblocks.
+- setThreadgroupMemoryLength:atIndex:
+Configures the size of a block of threadgroup memory.
+Required
+- setImageblockWidth:height:
+Sets the size, in pixels, of imageblock data in tile memory.
+Required
+Encoding Stage-in Data
+Set data in the stage-in region of a compute kernel for processing per-thread inputs.
+- setStageInRegion:
+Sets the dimensions over the thread grid of how your compute kernel receives stage-in arguments.
+Required
+- setStageInRegionWithIndirectBuffer:indirectBufferOffset:
+Sets the region of the stage-in attributes to apply to a compute kernel using an indirect buffer.
+Required
+Dispatching Kernel Calls Directly
+Encode kernel function calls to run as part of your compute pass.
+- dispatchThreads:threadsPerThreadgroup:
+Encodes a compute command using an arbitrarily sized grid.
+Required
+- dispatchThreadgroups:threadsPerThreadgroup:
+Encodes a compute dispatch command using a grid aligned to threadgroup boundaries.
+Required
+Dispatching from Indirect Command Buffers
+Encode commands within an indirect command buffer to run as part of your compute pass.
+- dispatchThreadgroupsWithIndirectBuffer:indirectBufferOffset:threadsPerThreadgroup:
+Encodes a dispatch call for a compute pass, using an indirect buffer that defines the size of a grid that aligns to threadgroup boundaries.
+Required
+- executeCommandsInBuffer:indirectBuffer:indirectBufferOffset:
+Encodes an instruction to run commands from an indirect buffer, using another buffer to provide the command range.
+Required
+- executeCommandsInBuffer:withRange:
+Encodes an instruction to run commands from an indirect buffer.
+Required
+Synchronizing Across Command Execution
+Protect against hazards for untracked resources, using memory fences and barriers.
+- waitForFence:
+Encodes a command that instructs the GPU to pause pass execution until a fence updates.
+Required
+- updateFence:
+Encodes a command that instructs the GPU to update a fence, allowing passes waiting on the fence to start or resume.
+Required
+- memoryBarrierWithScope:
+Creates a memory barrier that enforces the order of write and read operations for specific resource types.
+Required
+- memoryBarrierWithResources:count:
+Creates a memory barrier that enforces the order of write and read operations for specific resources.
+Required
+Encoding Sample Counters
+Sample real-time data on execution from the GPU’s hardware as it runs your compute pass.
+- sampleCountersInBuffer:atSampleIndex:withBarrier:
+Encodes a command to sample hardware counters, providing performance information.
+Required
+Relationships
+Inherits From
+MTLCommandEncoder
+Current page is MTLComputeCommandEncoder

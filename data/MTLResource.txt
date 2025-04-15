@@ -1,0 +1,78 @@
+Source: https://developer.apple.com/documentation/metal/mtlresource?language=objc
+Protocol
+MTLResource
+An allocation of memory accessible to a GPU.
+iOS 8.0+
+Mac Catalyst 13.1+
+macOS 10.11+
+tvOS 9.0+
+visionOS 1.0+
+@protocol MTLResource
+Overview
+Important
+Don’t implement this protocol yourself. Create resources by calling methods on MTLDevice, MTLBuffer, or MTLTexture.
+When you execute commands on the GPU, those commands can only affect memory allocated as MTLResource objects. Only the MTLDevice that created these resources can modify them. Different resource types have different uses. The most common resource types are buffers (MTLBuffer), which are linear allocations of memory, and textures (MTLTexture), which hold structured image data.
+Topics
+Identifying the Resource
+device
+The device object that created the resource.
+Required
+label
+A string that identifies the resource.
+Required
+Reading Memory and Storage Properties
+cpuCacheMode
+The CPU cache mode that defines the CPU mapping of the resource.
+Required
+storageMode
+The location and access permissions of the resource.
+Required
+hazardTrackingMode
+A mode that determines whether Metal tracks and synchronizes resource access.
+Required
+resourceOptions
+The storage mode, CPU cache mode, and hazard tracking mode of the resource.
+Required
+MTLCPUCacheMode
+Options for the CPU cache mode that define the CPU mapping of the resource.
+MTLStorageMode
+Options for the memory location and access permissions for a resource.
+MTLHazardTrackingMode
+The options you use to specify the hazard tracking mode.
+Setting the Purgeable State of the Resource
+- setPurgeableState:
+Specifies or queries the resource’s purgeable state.
+Required
+MTLPurgeableState
+The purgeable state of the resource.
+Managing Heap Resources
+heapOffset
+The distance, in bytes, from the beginning of the heap to the first byte of the resource, if you allocated the resource on a heap.
+Required
+heap
+The heap on which the resource is allocated, if any.
+Required
+- makeAliasable
+Allows future heap resource allocations to alias against the resource’s memory, reusing it.
+Required
+- isAliasable
+A Boolean value that indicates whether future heap resource allocations may alias against the resource’s memory.
+Required
+Querying the Allocated Size
+allocatedSize
+The size of the resource, in bytes.
+Required
+Instance Methods
+- setOwnerWithIdentity:
+Required
+Relationships
+Inherits From
+MTLAllocation
+Inherited By
+MTLAccelerationStructure
+MTLBuffer
+MTLIndirectCommandBuffer
+MTLIntersectionFunctionTable
+MTLTexture
+MTLVisibleFunctionTable
+Current page is MTLResource

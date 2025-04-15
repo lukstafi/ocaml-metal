@@ -1,0 +1,24 @@
+Source: https://developer.apple.com/documentation/metal/mtlregion?language=objc
+Structure
+MTLRegion
+The bounds for a subset of an object's elements.
+typedef struct MTLRegion {
+    ...
+} MTLRegion;
+Overview
+Metal has many object types that represent arrays of discrete elements. For example, a texture has an array of pixel elements, and a thread grid has an array of computational threads. Use MTLRegion instances to describe subsets of these objects.
+The origin is the front upper-left corner of the region, and its extents go towards the back lower-right corner. Conceptually, when using a MTLRegion instance to describe a subset of an object, treat the object as a 3D array of elements, even if it has fewer dimensions. For a 2D object, set the z coordinate of the origin to 0 and the depth to 1. For a 1D object, set the y and z coordinates of the origin to 0 and the height and depth to 1.
+Topics
+Creating Regions
+MTLRegionMake1D
+Creates a 3D representation of a 1D region.
+MTLRegionMake2D
+Creates a 3D representation of a 2D region.
+MTLRegionMake3D
+Creates a 3D region.
+Getting and Setting Region Information
+origin
+The coordinates of the front upper-left corner of the region.
+size
+The dimensions of the region.
+Current page is MTLRegion
