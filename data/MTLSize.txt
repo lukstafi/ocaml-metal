@@ -1,0 +1,22 @@
+Source: https://developer.apple.com/documentation/metal/mtlsize?language=objc
+Structure
+MTLSize
+The dimensions of an object.
+typedef struct MTLSize {
+    ...
+} MTLSize;
+Overview
+Metal has many object types that represent arrays of discrete elements. For example, a texture has an array of pixel elements, and a thread grid has an array of computational threads. Use MTLSize instances to measure the extents of these objects or extents of regions within these objects.
+Conceptually, when using a MTLSize instance to measure an object, treat the object as a 3D array of elements, even if it has fewer dimensions. Set the length of any unused dimensions to 1. For example, a 5x5 2D texture is a 5x5x1 texture in 3D.
+Topics
+Creating Sizes
+MTLSizeMake
+Creates a size for an object using the specified dimensions.
+Getting and Setting Dimensions
+width
+The number of elements in the x dimension.
+height
+The number of elements in the y dimension.
+depth
+The number of elements in the z dimension.
+Current page is MTLSize
