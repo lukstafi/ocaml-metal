@@ -1,0 +1,25 @@
+Source: https://developer.apple.com/documentation/metal/mtlevent?language=objc
+Protocol
+MTLEvent
+A simple semaphore to synchronize access to Metal resources.
+@protocol MTLEvent
+Overview
+You can only get an MTLEvent using the newEvent method of an MTLDevice instance. Events allow you to synchronize commands executing on a single Metal device.
+An event is an unsigned 64-bit integer, starting with an initial value of 0 and can only increase in value afterwards. You signal an event change by calling an MTLCommandBuffer instance’s encodeSignalEvent:value: method. The command buffer signals the event after the GPU completes running all previous commands, and updates its value if necessary.
+To wait for an event signal, call encodeWaitForEvent:value: on a command buffer, passing in the value to wait for. When the device executes the command buffer and reaches this wait command, it compares the event’s current value to the provided value. The device only starts new commands when the event reaches a value equal to or greater than the requested value.
+You can encode signaling and waiting on events into different command buffers, even command buffers executing on two different command queues for the same device. You can also encode these commands independently of each other, meaning, for example, that you can wait on signals you haven’t encoded yet.
+For more information, see Synchronizing Events Within a Single Device.
+Topics
+Identifying the Event
+device
+The device object that created the event.
+Required
+label
+A string that identifies the event.
+Required
+Relationships
+Inherits From
+NSObject
+Inherited By
+MTLSharedEvent
+Current page is MTLEvent

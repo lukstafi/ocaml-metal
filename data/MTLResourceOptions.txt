@@ -1,0 +1,37 @@
+Source: https://developer.apple.com/documentation/metal/mtlresourceoptions?language=objc
+Enumeration
+MTLResourceOptions
+Optional arguments used to set the behavior of a resource.
+typedef enum MTLResourceOptions : NSUInteger {
+    ...
+} MTLResourceOptions;
+Topics
+Specifying CPU Cache Modes
+MTLResourceCPUCacheModeDefaultCache
+The default CPU cache mode for the resource, which guarantees that read and write operations are executed in the expected order.
+MTLResourceCPUCacheModeWriteCombined
+A write-combined CPU cache mode that is optimized for resources that the CPU writes into, but never reads.
+Specifying Storage Modes
+MTLResourceStorageModeShared
+The CPU and GPU share access to the resource, allocated in system memory.
+MTLResourceStorageModeManaged
+The CPU and GPU may maintain separate copies of the resource, and any changes must be explicitly synchronized.
+MTLResourceStorageModePrivate
+The resource is only available to the GPU.
+MTLResourceStorageModeMemoryless
+The resource’s contents are only available to the GPU, and only exist temporarily during a render pass.
+Specifying Hazard Tracking
+MTLResourceHazardTrackingModeDefault
+An option specifying that the default tracking mode should be used.
+MTLResourceHazardTrackingModeTracked
+An option specifying that Metal prevents hazards when modifying this object's contents.
+MTLResourceHazardTrackingModeUntracked
+An option specifying that the app must prevent hazards when modifying this object's contents.
+Deprecated Options
+MTLResourceOptionCPUCacheModeDefault
+This constant was deprecated in iOS 9.0 and macOS 10.11.
+Deprecated
+MTLResourceOptionCPUCacheModeWriteCombined
+This constant was deprecated in iOS 9.0 and macOS 10.11.
+Deprecated
+Current page is MTLResourceOptions

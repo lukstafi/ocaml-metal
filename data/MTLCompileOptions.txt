@@ -1,0 +1,48 @@
+Source: https://developer.apple.com/documentation/metal/mtlcompileoptions?language=objc
+Class
+MTLCompileOptions
+Compilation settings for a Metal shader library.
+@interface MTLCompileOptions : NSObject
+Overview
+You can configure the Metal compiler’s options by setting any or all of an MTLCompileOptions instance’s properties, including the following:
+Target previous OS releases by assigning the languageVersion property to an MTLLanguageVersion case.
+Set preprocessor macros for the Metal compiler by assigning a dictionary to the preprocessorMacros property.
+Choose what the Metal compiler’s optimizer prioritizes by setting the optimizationLevel property to an MTLLibraryOptimizationLevel case.
+Allow the compiler to optimize for floating-point arithmetic that may violate the IEEE 754 standard by setting mathMode to MTLMathModeFast.
+You can compile a library with your compile options instance by calling an MTLDevice instance’s newLibraryWithSource:options:error: or newLibraryWithSource:options:completionHandler: method.
+Topics
+Configuring the Compiler Options
+enableLogging
+A Boolean value that enables shader logging.
+mathMode
+An indication of whether the compiler can perform optimizations for floating-point arithmetic that may violate the IEEE 754 standard.
+mathFloatingPointFunctions
+The FP32 math functions Metal uses.
+preserveInvariance
+A Boolean value that indicates whether the compiler compiles vertex shaders conservatively to generate consistent position calculations.
+languageVersion
+The language version for interpreting the library source code.
+preprocessorMacros
+A list of preprocessor macros to apply when compiling the library source.
+optimizationLevel
+An option that tells the compiler what to prioritize when it compiles Metal shader code.
+libraries
+An array of dynamic libraries the Metal compiler links against.
+fastMathEnabled
+A Boolean value that indicates whether the compiler can perform optimizations for floating-point arithmetic that may violate the IEEE 754 standard.
+Deprecated
+Configuring the Library Output Options
+libraryType
+The kind of library to create.
+installName
+For a dynamic library, the name to use when installing the library.
+Instance Properties
+allowReferencingUndefinedSymbols
+compileSymbolVisibility
+maxTotalThreadsPerThreadgroup
+Relationships
+Inherits From
+NSObject
+Conforms To
+NSCopying
+Current page is MTLCompileOptions

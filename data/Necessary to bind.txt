@@ -47,6 +47,10 @@ MTLDevice
   newLibraryWithData:error:
   newComputePipelineStateWithDescriptor:options:reflection:error:
   newBufferWithLength:options:
+MTLEvent
+MTLSharedEvent
+MTLFence
+MTLFunction
 MTLLibrary
   newFunctionWithName:
 MTLCommandQueue
