@@ -1,7 +1,7 @@
 (library
  (name metal_tests)
- (modules saxpy)
- (libraries base stdio metal)
+ (modules saxpy basic_tests error_tests advanced_tests coverage_utils)
+ (libraries base stdio metal ctypes.foreign)
  (inline_tests)
  (preprocess
   (pps ppx_expect)))
