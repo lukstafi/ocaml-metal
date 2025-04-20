@@ -666,6 +666,99 @@ module ResourceUsage : sig
   val ( + ) : t -> t -> t
 end
 
+(* === Indirect Command Buffers === *)
+
+(** Types of commands that can be encoded into an indirect command buffer. See
+    {{:https://developer.apple.com/documentation/metal/mtlindirectcommandtype}
+     MTLIndirectCommandType}. *)
+module IndirectCommandType : sig
+  type t [@@deriving sexp_of]
+
+  val draw : t
+  val draw_indexed : t
+  val draw_patches : t
+  val draw_indexed_patches : t
+  val concurrent_dispatch : t
+  val concurrent_dispatch_threads : t
+  val ( + ) : t -> t -> t
+end
+
+(** Describes the configuration for an indirect command buffer. See
+    {{:https://developer.apple.com/documentation/metal/mtlindirectcommandbufferdescriptor}
+     MTLIndirectCommandBufferDescriptor}. *)
+module IndirectCommandBufferDescriptor : sig
+  type t [@@deriving sexp_of]
+
+  val create : unit -> t
+  (** Creates a new descriptor. *)
+
+  val set_command_types : t -> IndirectCommandType.t -> unit
+  (** Sets the types of commands the buffer will contain. *)
+
+  val get_command_types : t -> IndirectCommandType.t
+
+  val set_inherit_pipeline_state : t -> bool -> unit
+  (** Configures whether commands inherit the pipeline state from the encoder. *)
+
+  val get_inherit_pipeline_state : t -> bool
+
+  val set_inherit_buffers : t -> bool -> unit
+  (** Configures whether commands inherit buffer bindings from the encoder. *)
+
+  val get_inherit_buffers : t -> bool
+
+  val set_max_kernel_buffer_bind_count : t -> int -> unit
+  (** Sets the maximum number of buffer bindings commands can specify. *)
+
+  val get_max_kernel_buffer_bind_count : t -> int
+end
+
+(** Represents a command within an indirect command buffer specific to compute operations. See
+    {{:https://developer.apple.com/documentation/metal/mtlindirectcomputecommand}
+     MTLIndirectComputeCommand}. *)
+module IndirectComputeCommand : sig
+  type t [@@deriving sexp_of]
+
+  val set_compute_pipeline_state : t -> ComputePipelineState.t -> unit
+  (** Sets the compute pipeline state for the command. *)
+
+  val set_kernel_buffer : t -> ?offset:int -> index:int -> Buffer.t -> unit
+  (** Sets a buffer argument for the command. *)
+
+  val concurrent_dispatch_threadgroups :
+    t -> threadgroups_per_grid:Size.t -> threads_per_threadgroup:Size.t -> unit
+  (** Specifies dispatch dimensions for the command. *)
+
+  val set_barrier : t -> unit
+  (** Encodes a barrier into the command stream. *)
+end
+
+(** A buffer containing pre-encoded commands that can be executed efficiently by the GPU. See
+    {{:https://developer.apple.com/documentation/metal/mtlindirectcommandbuffer}
+     MTLIndirectCommandBuffer}. *)
+module IndirectCommandBuffer : sig
+  type t [@@deriving sexp_of]
+
+  val on_device_with_descriptor :
+    Device.t ->
+    IndirectCommandBufferDescriptor.t ->
+    max_command_count:int ->
+    options:ResourceOptions.t ->
+    t
+  (** Creates an indirect command buffer. Requires Device module. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/3088425-newindirectcommandbuffer}
+       newIndirectCommandBufferWithDescriptor:maxCommandCount:options:}. *)
+
+  val get_size : t -> int
+  (** Gets the allocated size of the buffer. *)
+
+  val indirect_compute_command_at_index : t -> int -> IndirectComputeCommand.t
+  (** Gets an object representing the compute command at a specific index. *)
+
+  val reset_with_range : t -> Range.t -> unit
+  (** Resets a range of commands in the buffer, making them no-ops. *)
+end
+
 (** Encodes compute commands. See
     {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder}
      MTLComputeCommandEncoder}. *)
@@ -721,7 +814,7 @@ module ComputeCommandEncoder : sig
   val use_resources : t -> Resource.t list -> ResourceUsage.t -> unit
   (** Declares that multiple resources will be used by the following commands. *)
 
-  val execute_commands_in_buffer : t -> CommandBuffer.t -> Range.t -> unit
+  val execute_commands_in_buffer : t -> IndirectCommandBuffer.t -> Range.t -> unit
   (** Executes commands from an indirect command buffer. Requires IndirectCommandBuffer.t *)
 end
 
@@ -845,99 +938,6 @@ module SharedEvent : sig
       timeout elapses. Returns [true] if the value was reached, [false] on timeout. See
       {{:https://developer.apple.com/documentation/metal/mtlsharedevent/3553987-waituntilsignaledvalue?language=objc}
        waitUntilSignaledValue:timeoutMS:}. *)
-end
-
-(* === Indirect Command Buffers === *)
-
-(** Types of commands that can be encoded into an indirect command buffer. See
-    {{:https://developer.apple.com/documentation/metal/mtlindirectcommandtype}
-     MTLIndirectCommandType}. *)
-module IndirectCommandType : sig
-  type t [@@deriving sexp_of]
-
-  val draw : t
-  val draw_indexed : t
-  val draw_patches : t
-  val draw_indexed_patches : t
-  val concurrent_dispatch : t
-  val concurrent_dispatch_threads : t
-  val ( + ) : t -> t -> t
-end
-
-(** Describes the configuration for an indirect command buffer. See
-    {{:https://developer.apple.com/documentation/metal/mtlindirectcommandbufferdescriptor}
-     MTLIndirectCommandBufferDescriptor}. *)
-module IndirectCommandBufferDescriptor : sig
-  type t [@@deriving sexp_of]
-
-  val create : unit -> t
-  (** Creates a new descriptor. *)
-
-  val set_command_types : t -> IndirectCommandType.t -> unit
-  (** Sets the types of commands the buffer will contain. *)
-
-  val get_command_types : t -> IndirectCommandType.t
-
-  val set_inherit_pipeline_state : t -> bool -> unit
-  (** Configures whether commands inherit the pipeline state from the encoder. *)
-
-  val get_inherit_pipeline_state : t -> bool
-
-  val set_inherit_buffers : t -> bool -> unit
-  (** Configures whether commands inherit buffer bindings from the encoder. *)
-
-  val get_inherit_buffers : t -> bool
-
-  val set_max_kernel_buffer_bind_count : t -> int -> unit
-  (** Sets the maximum number of buffer bindings commands can specify. *)
-
-  val get_max_kernel_buffer_bind_count : t -> int
-end
-
-(** Represents a command within an indirect command buffer specific to compute operations. See
-    {{:https://developer.apple.com/documentation/metal/mtlindirectcomputecommand}
-     MTLIndirectComputeCommand}. *)
-module IndirectComputeCommand : sig
-  type t [@@deriving sexp_of]
-
-  val set_compute_pipeline_state : t -> ComputePipelineState.t -> unit
-  (** Sets the compute pipeline state for the command. *)
-
-  val set_kernel_buffer : t -> ?offset:int -> index:int -> Buffer.t -> unit
-  (** Sets a buffer argument for the command. *)
-
-  val concurrent_dispatch_threadgroups :
-    t -> threadgroups_per_grid:Size.t -> threads_per_threadgroup:Size.t -> unit
-  (** Specifies dispatch dimensions for the command. *)
-
-  val set_barrier : t -> unit
-  (** Encodes a barrier into the command stream. *)
-end
-
-(** A buffer containing pre-encoded commands that can be executed efficiently by the GPU. See
-    {{:https://developer.apple.com/documentation/metal/mtlindirectcommandbuffer}
-     MTLIndirectCommandBuffer}. *)
-module IndirectCommandBuffer : sig
-  type t [@@deriving sexp_of]
-
-  val on_device_with_descriptor :
-    Device.t ->
-    IndirectCommandBufferDescriptor.t ->
-    max_command_count:int ->
-    options:ResourceOptions.t ->
-    t
-  (** Creates an indirect command buffer. Requires Device module. See
-      {{:https://developer.apple.com/documentation/metal/mtldevice/3088425-newindirectcommandbuffer}
-       newIndirectCommandBufferWithDescriptor:maxCommandCount:options:}. *)
-
-  val get_size : t -> int
-  (** Gets the allocated size of the buffer. *)
-
-  val indirect_compute_command_at_index : t -> int -> IndirectComputeCommand.t
-  (** Gets an object representing the compute command at a specific index. *)
-
-  val reset_with_range : t -> Range.t -> unit
-  (** Resets a range of commands in the buffer, making them no-ops. *)
 end
 
 (* === Dynamic Library Placeholder === *)
