@@ -1,7 +1,5 @@
-open Metal
 open Ctypes
 open Bigarray
-open Runtime
 open Ctypes_static
 
 (* Helper for memcpy *)
@@ -18,9 +16,7 @@ let copy_bigarray_to_buffer ba (buffer : Metal.Buffer.t) =
   let len = Array1.dim ba * element_size in
   (* Use to_voidp for compatibility with memcpy *)
   ignore (memcpy (to_voidp buffer_ptr) (to_voidp data_ptr) (Unsigned.Size_t.of_int len));
-  (* Assume Metal.Buffer.NSRange and Metal.Buffer.did_modify_range exist *)
-  let range = Metal.Buffer.NSRange.make ~location:0 ~length:len in
-  Metal.Buffer.did_modify_range buffer range
+  Metal.Buffer.did_modify_range buffer { location = 0; length = len }
 
 (* Metal Shading Language (MSL) kernel for SAXPY *)
 let saxpy_kernel_source =
@@ -77,8 +73,7 @@ let%expect_test "SAXPY kernel computation test" =
   (* Copy scalar 'a' *)
   let a_ptr : unit ptr = Metal.Buffer.contents buffer_a in
   coerce (ptr void) (ptr float) a_ptr <-@ a_val;
-  let a_range = Metal.Buffer.NSRange.make ~location:0 ~length:(sizeof float) in
-  Metal.Buffer.did_modify_range buffer_a a_range;
+  Metal.Buffer.did_modify_range buffer_a {location = 0; length = sizeof float};
 
   Printf.printf "Data copied to buffers.\n";
   [%expect {| Data copied to buffers. |}];
@@ -100,40 +95,35 @@ let%expect_test "SAXPY kernel computation test" =
 
   (* 4. Create Pipeline State *)
   (* Assign nil_ptr to the location pointed by error_ptr *)
-  let pipeline_state =
-    Metal.ComputePipelineState.on_device device saxpy_function
+  let pipeline_state, _ =
+    Metal.ComputePipelineState.on_device_with_function device saxpy_function
   in
 
   (* 5. Create Command Buffer and Encoder *)
-  let command_buffer = Metal.CommandQueue.command_buffer command_queue in
+  let command_buffer = Metal.CommandBuffer.on_queue command_queue in
 
-  let compute_encoder = Metal.CommandBuffer.compute_command_encoder command_buffer in
+  let compute_encoder = Metal.ComputeCommandEncoder.on_buffer command_buffer in
   Printf.printf "Command buffer and encoder created.\n";
   [%expect {| Command buffer and encoder created. |}];
 
   (* 6. Set Up Encoder *)
   Metal.ComputeCommandEncoder.set_compute_pipeline_state compute_encoder pipeline_state;
-  Metal.ComputeCommandEncoder.set_buffer compute_encoder buffer_y 0 0;
+  Metal.ComputeCommandEncoder.set_buffer compute_encoder buffer_y ~index:0;
   (* y at index 0 *)
-  Metal.ComputeCommandEncoder.set_buffer compute_encoder buffer_x 0 1;
+  Metal.ComputeCommandEncoder.set_buffer compute_encoder buffer_x ~index:1;
   (* x at index 1 *)
-  Metal.ComputeCommandEncoder.set_buffer compute_encoder buffer_a 0 2;
+  Metal.ComputeCommandEncoder.set_buffer compute_encoder buffer_a ~index:2;
 
   (* a at index 2 *)
 
   (* 7. Dispatch Kernel *)
   let thread_execution_width =
-    Unsigned.ULong.to_int (Metal.ComputePipelineState.thread_execution_width pipeline_state)
-  in
-  let threads_per_threadgroup =
-    Metal.ComputeCommandEncoder.Size.make ~width:thread_execution_width ~height:1 ~depth:1
-  in
-  let threads_per_grid =
-    Metal.ComputeCommandEncoder.Size.make ~width:array_length ~height:1 ~depth:1
+    Metal.ComputePipelineState.get_thread_execution_width pipeline_state
   in
 
-  Metal.ComputeCommandEncoder.dispatch_threads compute_encoder ~threads_per_grid
-    ~threads_per_threadgroup;
+  Metal.ComputeCommandEncoder.dispatch_threadgroups compute_encoder
+    ~threadgroups_per_grid:{ width = array_length; height = 1; depth = 1 }
+    ~threads_per_threadgroup:{ width = thread_execution_width; height = 1; depth = 1 };
   Printf.printf "Kernel dispatched.\n";
   [%expect {| Kernel dispatched. |}];
 
@@ -149,10 +139,12 @@ let%expect_test "SAXPY kernel computation test" =
   [%expect {| Computation completed. |}];
 
   (* Check for command buffer errors *)
-  let command_buffer_error = Metal.CommandBuffer.error command_buffer in
-  (if not (is_nil command_buffer_error) then
-     let desc = get_error_description command_buffer_error in
-     Printf.eprintf "Command buffer error: %s\n" desc);
+  let command_buffer_error = Metal.CommandBuffer.get_error command_buffer in
+  Option.iter
+    (fun error ->
+      let desc = Metal.get_error_description error in
+      Printf.eprintf "Command buffer error: %s\n" desc)
+    command_buffer_error;
 
   (* 10. Verify Results (Optional but recommended) *)
   (* For shared memory, we might need to ensure CPU/GPU caches are synchronized.
@@ -166,7 +158,7 @@ let%expect_test "SAXPY kernel computation test" =
 
   Printf.printf "Starting verification of results...\n";
   [%expect {| Starting verification of results... |}];
-  
+
   let verify_results () =
     let tolerance = 1e-5 in
     let errors = ref 0 in
@@ -178,10 +170,8 @@ let%expect_test "SAXPY kernel computation test" =
           Printf.printf "Verification failed at index %d: Expected %f, Got %f\n" i expected actual;
         incr errors)
     done;
-    if !errors = 0 then 
-      Printf.printf "Verification successful!\n"
-    else 
-      Printf.printf "Verification failed with %d errors.\n" !errors
+    if !errors = 0 then Printf.printf "Verification successful!\n"
+    else Printf.printf "Verification failed with %d errors.\n" !errors
   in
 
   verify_results ();

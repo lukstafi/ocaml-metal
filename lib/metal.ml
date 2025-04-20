@@ -6,6 +6,7 @@ open Sexplib0.Sexp_conv
 type id = Objc.objc_object structure Ctypes_static.ptr
 
 let nil_ptr : id ptr = coerce (ptr void) (ptr Objc.id) null
+let nil : id = nil
 
 (* Helper to convert NSString to OCaml string *)
 let ocaml_string_from_nsstring nsstring_id =
@@ -25,6 +26,23 @@ let from_nsarray nsarray_id =
         in
         obj_id (* Or further processing if needed *))
 
+let to_nsarray ?count buffer : id =
+  let nsarray_class = Objc.get_class "NSArray" in
+  let count = match count with Some c -> c | None -> List.length buffer in
+  if count = 0 then
+    (* Create empty array *)
+    Objc.msg_send ~self:nsarray_class ~cmd:(selector "array") ~typ:(returning Objc.id)
+  else
+    (* Create array with contents *)
+    let array_with_objects_count =
+      Objc.msg_send ~self:nsarray_class
+        ~cmd:(selector "arrayWithObjects:count:")
+        ~typ:(ptr Objc.id @-> size_t @-> returning Objc.id)
+    in
+    (* Note: the buffer is copied, so no need to keep the array alive. *)
+    let buffer_ptr = CArray.start (CArray.of_list Objc.id buffer) in
+    array_with_objects_count buffer_ptr (Unsigned.Size_t.of_int count)
+
 (* Error Handling Helper *)
 let get_error_description nserror =
   if is_nil nserror then "No error"
@@ -34,6 +52,10 @@ let get_error_description nserror =
     in
     if is_nil localized_description then "Unknown error (no description)"
     else ocaml_string_from_nsstring localized_description
+
+let sexp_of_error error =
+  let localized_description = get_error_description error in
+  Sexplib0.Sexp.(List [ Atom "<NSError>"; Atom localized_description ])
 
 (* Check error pointer immediately after the call *)
 let check_error label (err_ptr : id ptr) =
@@ -46,14 +68,132 @@ let check_error label (err_ptr : id ptr) =
     let desc = get_error_description error_id in
     failwith (Printf.sprintf "%s failed: %s" label desc)
 
-(* Define NSRange struct type for use in methods that take ranges *)
-module NSRange = struct
-  type t
+(* === Basic Structures === *)
 
-  let t : t structure typ = structure "NSRange"
-  let location = field t "location" uint
-  let length = field t "length" uint
-  let () = seal t
+module Size = struct
+  type t = { width : int; height : int; depth : int } [@@deriving sexp_of]
+  type mtlsize
+  type mtl = mtlsize structure ptr
+
+  let mtlsize_t : mtlsize structure typ = structure "MTLSize"
+  let width_field = field mtlsize_t "width" ulong
+  let height_field = field mtlsize_t "height" ulong
+  let depth_field = field mtlsize_t "depth" ulong
+  let () = seal mtlsize_t
+
+  let from_struct (s : mtl) : t =
+    let s = !@s in
+    {
+      width = Unsigned.ULong.to_int (getf s width_field);
+      height = Unsigned.ULong.to_int (getf s height_field);
+      depth = Unsigned.ULong.to_int (getf s depth_field);
+    }
+
+  let sexp_of_mtl t =
+    Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "<MTLSize>"; sexp_of_t (from_struct t) ]
+
+  (* Convert OCaml record to C structure for function calls *)
+  let make ~width ~height ~depth : mtl =
+    let s = make mtlsize_t in
+    setf s width_field (Unsigned.ULong.of_int width);
+    setf s height_field (Unsigned.ULong.of_int height);
+    setf s depth_field (Unsigned.ULong.of_int depth);
+    s.structured
+
+  let to_value (t : t) : mtl = make ~width:t.width ~height:t.height ~depth:t.depth
+end
+
+module Origin = struct
+  type t = { x : int; y : int; z : int } [@@deriving sexp_of]
+  type mtlorigin
+  type mtl = mtlorigin structure ptr
+
+  let mtlorigin_t : mtlorigin structure typ = structure "MTLOrigin"
+  let x_field = field mtlorigin_t "x" ulong
+  let y_field = field mtlorigin_t "y" ulong
+  let z_field = field mtlorigin_t "z" ulong
+  let () = seal mtlorigin_t
+
+  let from_struct (s : mtl) : t =
+    let s = !@s in
+    {
+      x = Unsigned.ULong.to_int (getf s x_field);
+      y = Unsigned.ULong.to_int (getf s y_field);
+      z = Unsigned.ULong.to_int (getf s z_field);
+    }
+
+  let sexp_of_mtl t =
+    Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "<MTLOrigin>"; sexp_of_t (from_struct t) ]
+
+  (* Convert OCaml record to C structure for function calls *)
+  let make ~x ~y ~z : mtl =
+    let s = make mtlorigin_t in
+    setf s x_field (Unsigned.ULong.of_int x);
+    setf s y_field (Unsigned.ULong.of_int y);
+    setf s z_field (Unsigned.ULong.of_int z);
+    s.structured
+
+  let to_value (t : t) : mtl = make ~x:t.x ~y:t.y ~z:t.z
+end
+
+module Region = struct
+  type t = { origin : Origin.t; size : Size.t } [@@deriving sexp_of]
+  type mtlregion
+  type mtl = mtlregion structure ptr
+
+  let mtlregion_t : mtlregion structure typ = structure "MTLRegion"
+  let origin_field = field mtlregion_t "origin" Origin.mtlorigin_t
+  let size_field = field mtlregion_t "size" Size.mtlsize_t
+  let () = seal mtlregion_t
+
+  let from_struct (s : mtl) : t =
+    let s = !@s in
+    {
+      origin = Origin.from_struct (getf s origin_field).structured;
+      size = Size.from_struct (getf s size_field).structured;
+    }
+
+  let sexp_of_mtl t =
+    Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "<MTLRegion>"; sexp_of_t (from_struct t) ]
+
+  (* Convert OCaml record to C structure for function calls *)
+  let to_value (t : t) : mtl =
+    let s = make mtlregion_t in
+    setf s origin_field !@(Origin.to_value t.origin);
+    setf s size_field !@(Size.to_value t.size);
+    s.structured
+
+  let make ~x ~y ~z ~width ~height ~depth : mtl =
+    to_value { origin = { x; y; z }; size = { width; height; depth } }
+end
+
+module Range = struct
+  type t = { location : int; length : int } [@@deriving sexp_of]
+  type nsrange
+  type ns = nsrange structure ptr
+
+  let nsrange_t : nsrange structure typ = structure "NSRange"
+  let location_field = field nsrange_t "location" uint
+  let length_field = field nsrange_t "length" uint
+  let () = seal nsrange_t
+
+  let from_struct (s : ns) : t =
+    let s = !@s in
+    {
+      location = Unsigned.UInt.to_int (getf s location_field);
+      length = Unsigned.UInt.to_int (getf s length_field);
+    }
+
+  let sexp_of_ns t =
+    Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "<NSRange>"; sexp_of_t (from_struct t) ]
+
+  let make ~location ~length =
+    let ns_range = make nsrange_t in
+    setf ns_range location_field (Unsigned.UInt.of_int location);
+    setf ns_range length_field (Unsigned.UInt.of_int length);
+    ns_range.structured
+
+  let to_value t = make ~location:t.location ~length:t.length
 end
 
 module Device = struct
@@ -69,9 +209,6 @@ module Device = struct
     if is_nil device then failwith "Failed to create Metal device";
     device
 
-  (* NEW: Attributes Record and related types *)
-  type device_size = { width : int; height : int; depth : int } [@@deriving sexp_of]
-
   module ArgumentBuffersTier = struct
     type t = Tier1 | Tier2 [@@deriving sexp_of]
 
@@ -79,16 +216,10 @@ module Device = struct
       if Signed.LLong.equal i (Signed.LLong.of_int 0) then Tier1
       else if Signed.LLong.equal i (Signed.LLong.of_int 1) then Tier2
       else invalid_arg ("Unknown ArgumentBuffersTier: " ^ Signed.LLong.to_string i)
+
+    let to_uint (t : t) : Unsigned.uint =
+      match t with Tier1 -> Unsigned.UInt.of_int 0 | Tier2 -> Unsigned.UInt.of_int 1
   end
-
-  (* Define the MTLSize struct type locally for use in get_attributes *)
-  type mtlsize
-
-  let mtlsize_t : mtlsize structure typ = structure "MTLSize"
-  let width_field = field mtlsize_t "width" ulong
-  let height_field = field mtlsize_t "height" ulong
-  let depth_field = field mtlsize_t "depth" ulong
-  let () = seal mtlsize_t
 
   open Sexplib0.Sexp_conv (* Open standard converters for @@deriving sexp_of *)
 
@@ -104,7 +235,7 @@ module Device = struct
   type attributes = {
     name : string;
     registry_id : ullong;
-    max_threads_per_threadgroup : device_size;
+    max_threads_per_threadgroup : Size.t;
     max_buffer_length : ulong;
     max_threadgroup_memory_length : ulong;
     argument_buffers_support : ArgumentBuffersTier.t;
@@ -124,19 +255,17 @@ module Device = struct
         (Objc.msg_send ~self ~cmd:(selector "name") ~typ:(returning Objc.id))
     in
     let registry_id = Objc.msg_send ~self ~cmd:(selector "registryID") ~typ:(returning ullong) in
-    let max_threads_per_threadgroup_struct : device_size =
+    let max_threads_per_threadgroup_struct : Size.t =
+      (* Use Size.t *)
       (* Use the locally defined mtlsize_t struct *)
-      let size_struct : mtlsize Ctypes.structure =
+      let size_struct : Size.mtlsize Ctypes.structure =
+        (* Use Size.mtlsize *)
         Objc.msg_send_stret ~self
           ~cmd:(selector "maxThreadsPerThreadgroup")
-          ~typ:(returning mtlsize_t) (* Return the local struct type *)
-          ~return_type:mtlsize_t (* Pass struct type for stret size check *)
+          ~typ:(returning Size.mtlsize_t) (* Return the local struct type *)
+          ~return_type:Size.mtlsize_t (* Pass struct type for stret size check *)
       in
-      {
-        width = Unsigned.ULong.to_int (getf size_struct width_field);
-        height = Unsigned.ULong.to_int (getf size_struct height_field);
-        depth = Unsigned.ULong.to_int (getf size_struct depth_field);
-      }
+      Size.from_struct size_struct.structured
     in
     let max_buffer_length =
       Objc.msg_send ~self ~cmd:(selector "maxBufferLength") ~typ:(returning ulong)
@@ -177,18 +306,46 @@ module Device = struct
     }
 end
 
+(* === Resource Configuration === *)
+
 module ResourceOptions = struct
   type t = Unsigned.ULLong.t
 
   let sexp_of_t t = Sexplib0.Sexp.Atom (Unsigned.ULLong.to_string t)
   let ullong = ullong
+
+  (* Storage Modes (MTLStorageMode) *)
   let storage_mode_shared = Unsigned.ULLong.of_int 0
-  let storage_mode_managed = Unsigned.ULLong.of_int 16 (* MTLStorageModeManaged = 1 << 4 *)
-  let storage_mode_private = Unsigned.ULLong.of_int 32 (* MTLStorageModePrivate = 2 << 4 *)
+  let storage_mode_managed = Unsigned.ULLong.of_int 16 (* 1 << 4 *)
+  let storage_mode_private = Unsigned.ULLong.of_int 32 (* 2 << 4 *)
+  let storage_mode_memoryless = Unsigned.ULLong.of_int 48 (* 3 << 4 *)
+
+  (* CPU Cache Modes (MTLCPUCacheMode) *)
   let cpu_cache_mode_default_cache = Unsigned.ULLong.of_int 0
   let cpu_cache_mode_write_combined = Unsigned.ULLong.of_int 1
 
+  (* Hazard Tracking Modes (MTLHazardTrackingMode) *)
+  let hazard_tracking_mode_default = Unsigned.ULLong.of_int 0 (* 0 << 8 *)
+  let hazard_tracking_mode_untracked = Unsigned.ULLong.of_int 256 (* 1 << 8 *)
+  let hazard_tracking_mode_tracked = Unsigned.ULLong.of_int 512 (* 2 << 8 *)
+
   (* Combine options using Bitmask *)
+  let ( + ) = Unsigned.ULLong.logor
+
+  (* Helper function to create options *)
+  let make ?(storage_mode = storage_mode_shared) ?(cpu_cache_mode = cpu_cache_mode_default_cache)
+      ?(hazard_tracking_mode = hazard_tracking_mode_default) () =
+    storage_mode + cpu_cache_mode + hazard_tracking_mode
+end
+
+module PipelineOption = struct
+  type t = Unsigned.ULLong.t
+
+  let sexp_of_t t = Sexplib0.Sexp.Atom (Unsigned.ULLong.to_string t)
+  let none = Unsigned.ULLong.of_int 0
+  let argument_info = Unsigned.ULLong.of_int 1 (* 1 << 0 *)
+  let buffer_type_info = Unsigned.ULLong.of_int 2 (* 1 << 1 *)
+  let fail_on_binary_archive_miss = Unsigned.ULLong.of_int 4 (* 1 << 2 *)
   let ( + ) = Unsigned.ULLong.logor
 end
 
@@ -212,6 +369,7 @@ module CompileOptions = struct
     let version_2_4 = Unsigned.ULLong.of_int 131076
     let version_3_0 = Unsigned.ULLong.of_int 196608
     let version_3_1 = Unsigned.ULLong.of_int 196609
+    let version_3_2 = Unsigned.ULLong.of_int 196610 (* macOS 15.0, iOS 18.0 *)
 
     let sexp_of_t v =
       let open Sexplib0.Sexp in
@@ -225,6 +383,7 @@ module CompileOptions = struct
       else if Unsigned.ULLong.equal v version_2_4 then Atom "Version_2_4"
       else if Unsigned.ULLong.equal v version_3_0 then Atom "Version_3_0"
       else if Unsigned.ULLong.equal v version_3_1 then Atom "Version_3_1"
+      else if Unsigned.ULLong.equal v version_3_2 then Atom "Version_3_2"
       else Atom ("Unknown_Version_" ^ Unsigned.ULLong.to_string v)
   end
 
@@ -239,6 +398,12 @@ module CompileOptions = struct
       if Unsigned.ULLong.equal v executable then Atom "Executable"
       else if Unsigned.ULLong.equal v dynamic then Atom "Dynamic"
       else Atom ("Unknown_LibraryType_" ^ Unsigned.ULLong.to_string v)
+
+    let to_uint (t : t) : Unsigned.uint =
+      match Unsigned.ULLong.to_int t with
+      | 0 -> Unsigned.UInt.of_int 0
+      | 1 -> Unsigned.UInt.of_int 1
+      | _ -> invalid_arg "Unknown LibraryType"
   end
 
   module OptimizationLevel = struct
@@ -254,6 +419,13 @@ module CompileOptions = struct
       else if Unsigned.ULLong.equal v size then Atom "Size"
       else if Unsigned.ULLong.equal v performance then Atom "Performance"
       else Atom ("Unknown_OptimizationLevel_" ^ Unsigned.ULLong.to_string v)
+
+    let to_uint (t : t) : Unsigned.uint =
+      match Unsigned.ULLong.to_int t with
+      | 0 -> Unsigned.UInt.of_int 0
+      | 1 -> Unsigned.UInt.of_int 1
+      | 2 -> Unsigned.UInt.of_int 2
+      | _ -> invalid_arg "Unknown OptimizationLevel"
   end
 
   let set_fast_math_enabled self enabled =
@@ -278,6 +450,14 @@ module CompileOptions = struct
   let get_library_type self =
     Objc.msg_send ~self ~cmd:(selector "libraryType") ~typ:(returning ullong)
 
+  let set_install_name self name =
+    let ns_name = new_string name in
+    Objc.msg_send ~self ~cmd:(selector "setInstallName:") ~typ:(Objc.id @-> returning void) ns_name
+
+  let get_install_name self =
+    let ns_name = Objc.msg_send ~self ~cmd:(selector "installName") ~typ:(returning Objc.id) in
+    ocaml_string_from_nsstring ns_name
+
   let set_optimization_level self level =
     Objc.msg_send ~self
       ~cmd:(selector "setOptimizationLevel:")
@@ -291,6 +471,7 @@ module CompileOptions = struct
     let fast_math = get_fast_math_enabled t in
     let lang_version_val = get_language_version t in
     let lib_type_val = get_library_type t in
+    let install_name_val = get_install_name t in
     let opt_level_val = get_optimization_level t in
     Sexplib0.Sexp.List
       [
@@ -301,630 +482,1048 @@ module CompileOptions = struct
           [ Sexplib0.Sexp.Atom "language_version"; LanguageVersion.sexp_of_t lang_version_val ];
         Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "library_type"; LibraryType.sexp_of_t lib_type_val ];
         Sexplib0.Sexp.List
+          [ Sexplib0.Sexp.Atom "install_name"; Sexplib0.Sexp.Atom install_name_val ];
+        Sexplib0.Sexp.List
           [ Sexplib0.Sexp.Atom "optimization_level"; OptimizationLevel.sexp_of_t opt_level_val ];
       ]
 end
 
-module ResourceUsage = struct
-  type t = Unsigned.ULong.t
+(* === Resources === *)
 
-  let read = Unsigned.ULong.of_int 1 (* MTLResourceUsageRead *)
-  let write = Unsigned.ULong.of_int 2 (* MTLResourceUsageWrite *)
-
-  (* Combine options using bitwise OR *)
-  let ( + ) = Unsigned.ULong.logor
-end
-
-module Region = struct
-  type mtlorigin
-  type mtlsize
-  type mtlregion
-  type t = mtlregion structure Ctypes_static.ptr
-
-  let mtlorigin_t : mtlorigin structure typ = structure "MTLOrigin"
-  let origin_x = field mtlorigin_t "x" size_t
-  let origin_y = field mtlorigin_t "y" size_t
-  let origin_z = field mtlorigin_t "z" size_t
-  let () = seal mtlorigin_t
-  let mtlsize_t : mtlsize structure typ = structure "MTLSize"
-  let size_width = field mtlsize_t "width" size_t
-  let size_height = field mtlsize_t "height" size_t
-  let size_depth = field mtlsize_t "depth" size_t
-  let () = seal mtlsize_t
-  let mtlregion_t : mtlregion structure typ = structure "MTLRegion"
-  let region_origin = field mtlregion_t "origin" mtlorigin_t
-  let region_size = field mtlregion_t "size" mtlsize_t
-  let () = seal mtlregion_t
-
-  let make_origin ~x ~y ~z =
-    let origin = make mtlorigin_t in
-    setf origin origin_x (Unsigned.Size_t.of_int x);
-    setf origin origin_y (Unsigned.Size_t.of_int y);
-    setf origin origin_z (Unsigned.Size_t.of_int z);
-    origin
-
-  let make_size ~width ~height ~depth =
-    let size = make mtlsize_t in
-    setf size size_width (Unsigned.Size_t.of_int width);
-    setf size size_height (Unsigned.Size_t.of_int height);
-    setf size size_depth (Unsigned.Size_t.of_int depth);
-    size
-
-  let make ~x ~y ~z ~width ~height ~depth =
-    let region = make mtlregion_t in
-    setf region region_origin (make_origin ~x ~y ~z);
-    setf region region_size (make_size ~width ~height ~depth);
-    region.structured
-
-  let make_1d ~x ~width = make ~x ~y:0 ~z:0 ~width ~height:1 ~depth:1
-  let make_2d ~x ~y ~width ~height = make ~x ~y ~z:0 ~width ~height ~depth:1
-end
-
-module Event = struct
+module Resource = struct
   type t = id
 
-  let sexp_of_t _ = Sexplib0.Sexp.Atom "<MTLEvent>"
-  let on_device device = Objc.msg_send ~self:device ~cmd:(selector "newEvent") ~typ:(returning Objc.id)
+  let set_label (self : t) label =
+    let ns_label = new_string label in
+    Objc.msg_send ~self ~cmd:(selector "setLabel:") ~typ:(Objc.id @-> returning void) ns_label
 
-  let set_label event label =
-    let ns_label =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        label
+  let get_label (self : t) =
+    let ns_label = Objc.msg_send ~self ~cmd:(selector "label") ~typ:(returning Objc.id) in
+    ocaml_string_from_nsstring ns_label
+
+  let get_device (self : t) : Device.t =
+    Objc.msg_send ~self ~cmd:(selector "device") ~typ:(returning Objc.id)
+
+  module PurgeableState = struct
+    type t = KeepCurrent | NonVolatile | Volatile | Empty [@@deriving sexp_of]
+
+    let to_int = function KeepCurrent -> 1 | NonVolatile -> 2 | Volatile -> 3 | Empty -> 4
+
+    let from_int = function
+      | 1 -> KeepCurrent
+      | 2 -> NonVolatile
+      | 3 -> Volatile
+      | 4 -> Empty
+      | _ -> invalid_arg "Invalid MTLPurgeableState value"
+  end
+
+  let set_purgeable_state (self : t) state =
+    let prev_state_int =
+      Objc.msg_send ~self ~cmd:(selector "setPurgeableState:")
+        ~typ:(uint @-> returning uint)
+        (Unsigned.UInt.of_int (PurgeableState.to_int state))
     in
-    Objc.msg_send ~self:event ~cmd:(selector "setLabel:") ~typ:(Objc.id @-> returning void) ns_label
-end
+    PurgeableState.from_int (Unsigned.UInt.to_int prev_state_int)
 
-module SharedEvent = struct
-  type t = id
+  module CPUCacheMode = struct
+    type t = DefaultCache | WriteCombined [@@deriving sexp_of]
 
-  let sexp_of_t _ = Sexplib0.Sexp.Atom "<MTLSharedEvent>"
+    let from_uint i =
+      match Unsigned.UInt.to_int i with
+      | 0 -> DefaultCache
+      | 1 -> WriteCombined
+      | _ -> invalid_arg "Unknown CPUCacheMode"
 
-  let on_device device =
-    Objc.msg_send ~self:device ~cmd:(selector "newSharedEvent") ~typ:(returning Objc.id)
+    let to_uint = function DefaultCache -> Unsigned.UInt.zero | WriteCombined -> Unsigned.UInt.one
+  end
 
-  let set_label event label =
-    let ns_label =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        label
-    in
-    Objc.msg_send ~self:event ~cmd:(selector "setLabel:") ~typ:(Objc.id @-> returning void) ns_label
+  module StorageMode = struct
+    type t = Shared | Managed | Private | Memoryless [@@deriving sexp_of]
 
-  let set_signaled_value event value =
-    Objc.msg_send ~self:event ~cmd:(selector "setSignaledValue:")
-      ~typ:(uint64_t @-> returning void)
-      (Unsigned.UInt64.of_int value)
+    let from_uint i =
+      match Unsigned.UInt.to_int i with
+      | 0 -> Shared
+      | 1 -> Managed (* macOS only *)
+      | 2 -> Private
+      | 3 -> Memoryless
+      | _ -> invalid_arg "Unknown StorageMode"
 
-  let get_signaled_value event =
-    let value =
-      Objc.msg_send ~self:event ~cmd:(selector "signaledValue") ~typ:(returning uint64_t)
-    in
-    Unsigned.UInt64.to_int value
-end
+    let to_uint = function
+      | Shared -> Unsigned.UInt.zero
+      | Managed -> Unsigned.UInt.one
+      | Private -> Unsigned.UInt.of_int 2
+      | Memoryless -> Unsigned.UInt.of_int 3
+  end
 
-module Fence = struct
-  type t = id
+  module HazardTrackingMode = struct
+    type t = Default | Untracked | Tracked [@@deriving sexp_of]
 
-  let sexp_of_t _ = Sexplib0.Sexp.Atom "<MTLFence>"
+    let from_uint i =
+      match Unsigned.UInt.to_int i with
+      | 0 -> Default
+      | 1 -> Untracked
+      | 2 -> Tracked
+      | _ -> invalid_arg "Unknown HazardTrackingMode"
 
-  let on_device device =
-    Objc.msg_send ~self:device ~cmd:(selector "newFence") ~typ:(returning Objc.id)
+    let to_uint = function
+      | Default -> Unsigned.UInt.zero
+      | Untracked -> Unsigned.UInt.one
+      | Tracked -> Unsigned.UInt.of_int 2
+  end
 
-  let set_label fence label =
-    let ns_label =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        label
-    in
-    Objc.msg_send ~self:fence ~cmd:(selector "setLabel:") ~typ:(Objc.id @-> returning void) ns_label
-end
+  let get_cpu_cache_mode (self : t) : CPUCacheMode.t =
+    let mode_val = Objc.msg_send ~self ~cmd:(selector "cpuCacheMode") ~typ:(returning uint) in
+    CPUCacheMode.from_uint mode_val
 
-module Function = struct
-  type t = id
+  let get_storage_mode (self : t) : StorageMode.t =
+    let mode_val = Objc.msg_send ~self ~cmd:(selector "storageMode") ~typ:(returning uint) in
+    StorageMode.from_uint mode_val
+
+  let get_hazard_tracking_mode (self : t) : HazardTrackingMode.t =
+    let mode_val = Objc.msg_send ~self ~cmd:(selector "hazardTrackingMode") ~typ:(returning uint) in
+    HazardTrackingMode.from_uint mode_val
+
+  let get_resource_options (self : t) : ResourceOptions.t =
+    Objc.msg_send ~self ~cmd:(selector "resourceOptions") ~typ:(returning ullong)
+
+  let get_heap (self : t) : id =
+    (* Returns id, needs Heap module *)
+    Objc.msg_send ~self ~cmd:(selector "heap") ~typ:(returning Objc.id)
+
+  let get_heap_offset (self : t) : int =
+    let offset = Objc.msg_send ~self ~cmd:(selector "heapOffset") ~typ:(returning ulong) in
+    Unsigned.ULong.to_int offset
+
+  let get_allocated_size (self : t) : int =
+    let size = Objc.msg_send ~self ~cmd:(selector "allocatedSize") ~typ:(returning ulong) in
+    Unsigned.ULong.to_int size
+
+  let make_aliasable (self : t) : unit =
+    Objc.msg_send ~self ~cmd:(selector "makeAliasable") ~typ:(returning void)
+
+  let is_aliasable (self : t) : bool =
+    Objc.msg_send ~self ~cmd:(selector "isAliasable") ~typ:(returning bool)
 
   let sexp_of_t t =
-    let function_name = Objc.msg_send ~self:t ~cmd:(selector "name") ~typ:(returning Objc.id) in
-    let name = ocaml_string_from_nsstring function_name in
-    Sexplib0.Sexp.Atom name
-
-  let get_name func =
-    let function_name = Objc.msg_send ~self:func ~cmd:(selector "name") ~typ:(returning Objc.id) in
-    ocaml_string_from_nsstring function_name
-
-  let set_label func label =
-    let ns_label =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        label
-    in
-    Objc.msg_send ~self:func ~cmd:(selector "setLabel:") ~typ:(Objc.id @-> returning void) ns_label
-end
-
-module PipelineOption = struct
-  type t = Unsigned.ULong.t
-
-  let none = Unsigned.ULong.of_int 0 (* MTLPipelineOptionNone *)
-
-  (* Combine options using bitwise OR *)
-  let ( + ) = Unsigned.ULong.logor
-end
-
-module Library = struct
-  type t = id
-
-  let sexp_of_t _ = Sexplib0.Sexp.Atom "<MTLLibrary>"
-
-  (* Create a new library from Metal source code *)
-  let on_device_with_source device source options =
-    let err_ptr = allocate (ptr Objc.objc_object) Runtime.nil in
-    let source_str =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        source
-    in
-    let library =
-      Objc.msg_send ~self:device
-        ~cmd:(selector "newLibraryWithSource:options:error:")
-        ~typ:(Objc.id @-> Objc.id @-> ptr Objc.id @-> returning Objc.id)
-        source_str options err_ptr
-    in
-    let _ = check_error "newLibraryWithSource" (coerce (ptr Objc.id) (ptr Objc.id) err_ptr) in
-    library
-
-  (* Create a new library from a compiled Metal library data *)
-  let on_device_with_data device data =
-    let err_ptr = allocate (ptr Objc.objc_object) Runtime.nil in
-    let library =
-      Objc.msg_send ~self:device
-        ~cmd:(selector "newLibraryWithData:error:")
-        ~typ:(Objc.id @-> ptr Objc.id @-> returning Objc.id)
-        data err_ptr
-    in
-    let _ = check_error "newLibraryWithData" (coerce (ptr Objc.id) (ptr Objc.id) err_ptr) in
-    library
-
-  (* Get a function from the library by name *)
-  let new_function_with_name library name =
-    let name_str =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        name
-    in
-    let func =
-      Objc.msg_send ~self:library ~cmd:(selector "newFunctionWithName:")
-        ~typ:(Objc.id @-> returning Objc.id)
-        name_str
-    in
-    if is_nil func then failwith (Printf.sprintf "Function '%s' not found in library" name);
-    func
-
-  let set_label library label =
-    let ns_label =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        label
-    in
-    Objc.msg_send ~self:library ~cmd:(selector "setLabel:")
-      ~typ:(Objc.id @-> returning void)
-      ns_label
-end
-
-module DynamicLibrary = struct
-  type t = id
-
-  let sexp_of_t _ = Sexplib0.Sexp.Atom "<MTLDynamicLibrary>"
-
-  let set_label lib label =
-    let ns_label =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        label
-    in
-    Objc.msg_send ~self:lib ~cmd:(selector "setLabel:") ~typ:(Objc.id @-> returning void) ns_label
+    let label = get_label t in
+    let device_id = get_device t in
+    let cpu_cache_mode = get_cpu_cache_mode t in
+    let storage_mode = get_storage_mode t in
+    let hazard_tracking_mode = get_hazard_tracking_mode t in
+    let options = get_resource_options t in
+    let allocated_size = get_allocated_size t in
+    let heap = get_heap t in
+    let heap_offset = get_heap_offset t in
+    let aliasable = is_aliasable t in
+    Sexplib0.Sexp.List
+      [
+        List [ Atom "label"; Atom label ];
+        List [ Atom "device"; Device.sexp_of_t device_id ];
+        List [ Atom "cpu_cache_mode"; CPUCacheMode.sexp_of_t cpu_cache_mode ];
+        List [ Atom "storage_mode"; StorageMode.sexp_of_t storage_mode ];
+        List [ Atom "hazard_tracking_mode"; HazardTrackingMode.sexp_of_t hazard_tracking_mode ];
+        List [ Atom "resource_options"; ResourceOptions.sexp_of_t options ];
+        List [ Atom "allocated_size"; Atom (Int.to_string allocated_size) ];
+        List [ Atom "heap_offset"; Atom (Int.to_string heap_offset) ];
+        List [ Atom "is_aliasable"; Atom (Bool.to_string aliasable) ];
+        List [ Atom "heap_present"; Atom (Bool.to_string (not (is_nil heap))) ];
+      ]
 end
 
 module Buffer = struct
   type t = id
 
-  let sexp_of_t _ = Sexplib0.Sexp.Atom "<MTLBuffer>"
+  let sexp_of_t = Resource.sexp_of_t (* Buffers are Resources *)
 
-  let on_device device length options =
-    Objc.msg_send ~self:device
-      ~cmd:(selector "newBufferWithLength:options:")
-      ~typ:(size_t @-> ullong @-> returning Objc.id)
-      (Unsigned.Size_t.of_int length) options
-
-  let length buffer =
-    let len = Objc.msg_send ~self:buffer ~cmd:(selector "length") ~typ:(returning size_t) in
-    Unsigned.Size_t.to_int len
-
-  let contents buffer =
-    Objc.msg_send ~self:buffer ~cmd:(selector "contents") ~typ:(returning (ptr void))
-
-  let set_label buffer label =
-    let ns_label =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        label
+  let on_device (device : Device.t) ~length options : t =
+    let buf =
+      Objc.msg_send ~self:device
+        ~cmd:(selector "newBufferWithLength:options:")
+        ~typ:(ulong @-> ullong @-> returning Objc.id)
+        (Unsigned.ULong.of_int length) options
     in
-    Objc.msg_send ~self:buffer ~cmd:(selector "setLabel:")
-      ~typ:(Objc.id @-> returning void)
-      ns_label
+    if is_nil buf then failwith "Failed to create buffer";
+    buf
 
-  let did_modify_range buffer range_start range_length =
-    let ns_range = make NSRange.t in
-    setf ns_range NSRange.location (Unsigned.UInt.of_int range_start);
-    setf ns_range NSRange.length (Unsigned.UInt.of_int range_length);
-    Objc.msg_send ~self:buffer ~cmd:(selector "didModifyRange:")
-      ~typ:(NSRange.t @-> returning void)
-      ns_range
-end
-
-module IndirectCommandType = struct
-  type t = Unsigned.ULong.t
-
-  let concurrent_dispatch = Unsigned.ULong.of_int 1
-
-  (* Combine types using bitwise OR *)
-  let ( + ) = Unsigned.ULong.logor
-end
-
-module IndirectCommandBufferDescriptor = struct
-  type t = id
-
-  let init () =
-    let cls = Objc.get_class "MTLIndirectCommandBufferDescriptor" in
-    cls |> alloc |> init
-
-  let set_command_types descriptor command_types =
-    Objc.msg_send ~self:descriptor ~cmd:(selector "setCommandTypes:")
-      ~typ:(ulong @-> returning void)
-      (command_types : IndirectCommandType.t)
-
-  let set_inherit_buffers descriptor inherit_buffers =
-    Objc.msg_send ~self:descriptor ~cmd:(selector "setInheritBuffers:")
-      ~typ:(bool @-> returning void)
-      inherit_buffers
-
-  let set_inherit_pipeline_state descriptor inherit_pipeline_state =
-    Objc.msg_send ~self:descriptor
-      ~cmd:(selector "setInheritPipelineState:")
-      ~typ:(bool @-> returning void)
-      inherit_pipeline_state
-
-  let set_max_kernel_buffer_bind_count descriptor count =
-    Objc.msg_send ~self:descriptor
-      ~cmd:(selector "setMaxKernelBufferBindCount:")
-      ~typ:(uint @-> returning void)
-      (Unsigned.UInt.of_int count)
-end
-
-(* Forward declaration for IndirectComputeCommand *)
-module rec IndirectCommandBuffer : sig
-  type t = id
-
-  val sexp_of_t : t -> Sexplib0.Sexp.t
-  val on_device : Device.t -> IndirectCommandBufferDescriptor.t -> int -> ResourceOptions.t -> t
-  val indirect_compute_command_at_index : t -> int -> IndirectComputeCommand.t
-  val set_label : t -> string -> unit
-  val reset : t -> int -> int -> unit
-end = struct
-  type t = id
-
-  let sexp_of_t _ = Sexplib0.Sexp.Atom "<MTLIndirectCommandBuffer>"
-
-  let on_device device descriptor max_count options =
-    Objc.msg_send ~self:device
-      ~cmd:(selector "newIndirectCommandBufferWithDescriptor:maxCommandCount:options:")
-      ~typ:(Objc.id @-> uint @-> ullong @-> returning Objc.id)
-      descriptor (Unsigned.UInt.of_int max_count) options
-
-  let indirect_compute_command_at_index icb index =
-    Objc.msg_send ~self:icb
-      ~cmd:(selector "indirectComputeCommandAtIndex:")
-      ~typ:(uint @-> returning Objc.id)
-      (Unsigned.UInt.of_int index)
-
-  let set_label icb label =
-    let ns_label =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        label
+  let on_device_with_bytes (device : Device.t) ~bytes ~length options : t =
+    let buf =
+      Objc.msg_send ~self:device
+        ~cmd:(selector "newBufferWithBytes:length:options:")
+        ~typ:(ptr void @-> ulong @-> ullong @-> returning Objc.id)
+        bytes (Unsigned.ULong.of_int length) options
     in
-    Objc.msg_send ~self:icb ~cmd:(selector "setLabel:") ~typ:(Objc.id @-> returning void) ns_label
+    if is_nil buf then failwith "Failed to create buffer with bytes";
+    buf
 
-  let reset icb range_start range_length =
-    let ns_range = make NSRange.t in
-    setf ns_range NSRange.location (Unsigned.UInt.of_int range_start);
-    setf ns_range NSRange.length (Unsigned.UInt.of_int range_length);
-    Objc.msg_send ~self:icb ~cmd:(selector "resetWithRange:")
-      ~typ:(NSRange.t @-> returning void)
-      ns_range
+  let on_device_with_bytes_no_copy (device : Device.t) ~bytes ~length ?deallocator options : t =
+    let dealloc_block =
+      match deallocator with
+      | None -> null
+      | Some d -> Block.make ~args:[] ~return:Objc_type.void (fun _block -> d ())
+    in
+    let buf =
+      Objc.msg_send ~self:device
+        ~cmd:(selector "newBufferWithBytesNoCopy:length:options:deallocator:")
+        ~typ:(ptr void @-> ulong @-> ullong @-> ptr void @-> returning Objc.id)
+        bytes (Unsigned.ULong.of_int length) options dealloc_block
+    in
+    if is_nil buf then failwith "Failed to create buffer with bytes no copy";
+    buf
+
+  let length (self : t) : int =
+    let len = Objc.msg_send ~self ~cmd:(selector "length") ~typ:(returning ulong) in
+    Unsigned.ULong.to_int len
+
+  let contents (self : t) : unit ptr =
+    Objc.msg_send ~self ~cmd:(selector "contents") ~typ:(returning (ptr void))
+
+  let did_modify_range (self : t) range =
+    let ns_range = Range.to_value range in
+    Objc.msg_send ~self ~cmd:(selector "didModifyRange:")
+      ~typ:(Range.nsrange_t @-> returning void)
+      !@ns_range
+
+  let add_debug_marker (self : t) ~marker range =
+    let ns_marker = new_string marker in
+    let ns_range = Range.to_value range in
+    Objc.msg_send ~self
+      ~cmd:(selector "addDebugMarker:range:")
+      ~typ:(Objc.id @-> Range.nsrange_t @-> returning void)
+      ns_marker !@ns_range
+
+  let remove_all_debug_markers (self : t) =
+    Objc.msg_send ~self ~cmd:(selector "removeAllDebugMarkers") ~typ:(returning void)
+
+  let get_gpu_address (self : t) : Unsigned.ULLong.t =
+    Objc.msg_send ~self ~cmd:(selector "gpuAddress") ~typ:(returning ullong)
+
+  (* Note: newTextureWithDescriptor is omitted as per user request (graphics focus) *)
+  (* Note: remoteStorageBuffer/newRemoteBufferViewForDevice omitted for simplicity, can be added if needed *)
 end
 
-and IndirectComputeCommand : sig
-  type t = id
+(* === Libraries and Functions === *)
 
-  val set_compute_pipeline_state : t -> id -> unit
-  val set_kernel_buffer : t -> id -> int -> int -> unit
-  val concurrent_dispatch_threadgroups : t -> int -> int -> int -> int -> int -> int -> unit
-  val set_barrier : t -> unit
-end = struct
-  type t = id
+module FunctionType = struct
+  type t = Vertex | Fragment | Kernel | Visible | Intersection | Mesh | Object
+  [@@deriving sexp_of]
 
-  let set_compute_pipeline_state cmd pipeline_state =
-    Objc.msg_send ~self:cmd
-      ~cmd:(selector "setComputePipelineState:")
-      ~typ:(Objc.id @-> returning void)
-      pipeline_state
+  let from_uint i =
+    match Unsigned.UInt.to_int i with
+    | 1 -> Vertex
+    | 2 -> Fragment
+    | 3 -> Kernel
+    | 5 -> Visible
+    | 6 -> Intersection
+    | 7 -> Mesh
+    | 8 -> Object
+    | _ -> invalid_arg "Unknown FunctionType"
 
-  let set_kernel_buffer cmd buffer offset index =
-    Objc.msg_send ~self:cmd
-      ~cmd:(selector "setKernelBuffer:offset:atIndex:")
-      ~typ:(Objc.id @-> uint @-> uint @-> returning void)
-      buffer (Unsigned.UInt.of_int offset) (Unsigned.UInt.of_int index)
-
-  let concurrent_dispatch_threadgroups cmd width height depth thread_per_group_width
-      thread_per_group_height thread_per_group_depth =
-    let threadgroups = make Device.mtlsize_t in
-    setf threadgroups Device.width_field (Unsigned.ULong.of_int width);
-    setf threadgroups Device.height_field (Unsigned.ULong.of_int height);
-    setf threadgroups Device.depth_field (Unsigned.ULong.of_int depth);
-
-    let threads_per_threadgroup = make Device.mtlsize_t in
-    setf threads_per_threadgroup Device.width_field (Unsigned.ULong.of_int thread_per_group_width);
-    setf threads_per_threadgroup Device.height_field (Unsigned.ULong.of_int thread_per_group_height);
-    setf threads_per_threadgroup Device.depth_field (Unsigned.ULong.of_int thread_per_group_depth);
-
-    Objc.msg_send ~self:cmd
-      ~cmd:(selector "concurrentDispatchThreadgroups:threadsPerThreadgroup:")
-      ~typ:(Device.mtlsize_t @-> Device.mtlsize_t @-> returning void)
-      threadgroups threads_per_threadgroup
-
-  let set_barrier cmd = Objc.msg_send ~self:cmd ~cmd:(selector "setBarrier") ~typ:(returning void)
+  let to_uint = function
+    | Vertex -> Unsigned.UInt.one
+    | Fragment -> Unsigned.UInt.of_int 2
+    | Kernel -> Unsigned.UInt.of_int 3
+    | Visible -> Unsigned.UInt.of_int 5
+    | Intersection -> Unsigned.UInt.of_int 6
+    | Mesh -> Unsigned.UInt.of_int 7
+    | Object -> Unsigned.UInt.of_int 8
 end
+
+module Function = struct
+  type t = id
+
+  let set_label (self : t) label = Resource.set_label self label
+  let get_label (self : t) = Resource.get_label self
+  let get_device (self : t) = Resource.get_device self
+
+  let get_function_type (self : t) : FunctionType.t =
+    let ft = Objc.msg_send ~self ~cmd:(selector "functionType") ~typ:(returning uint) in
+    FunctionType.from_uint ft
+
+  (* Skipping patchType, patchControlPointCount, vertexAttributes, stageInputAttributes as they are
+     graphics/tessellation related *)
+
+  let get_name (self : t) : string =
+    let ns_name = Objc.msg_send ~self ~cmd:(selector "name") ~typ:(returning Objc.id) in
+    ocaml_string_from_nsstring ns_name
+
+  (* Skipping functionConstantsDictionary for brevity, can add if needed *)
+
+  let get_options (self : t) : Unsigned.ULLong.t =
+    (* MTLFunctionOptions is NSUInteger *)
+    Objc.msg_send ~self ~cmd:(selector "options") ~typ:(returning ullong)
+
+  (* Skipping newArgumentEncoderWithBufferIndex for now, as ArgumentEncoder itself is complex *)
+
+  let sexp_of_t t =
+    let name = get_name t in
+    let ftype = get_function_type t in
+    Sexplib0.Sexp.List [ Atom "name"; Atom name; Atom "type"; FunctionType.sexp_of_t ftype ]
+end
+
+module Library = struct
+  type t = id
+
+  let set_label (self : t) label = Resource.set_label self label
+  let get_label (self : t) = Resource.get_label self
+  let get_device (self : t) = Resource.get_device self
+
+  let on_device (device : Device.t) ~source options : t =
+    let ns_source = new_string source in
+    let err_ptr = allocate Objc.id nil in
+    let lib =
+      Objc.msg_send ~self:device
+        ~cmd:(selector "newLibraryWithSource:options:error:")
+        ~typ:(Objc.id @-> Objc.id @-> ptr Objc.id @-> returning Objc.id)
+        ns_source options err_ptr
+    in
+    check_error "newLibraryWithSource" err_ptr;
+    if is_nil lib then failwith "Failed to create library from source (nil returned)";
+    lib
+
+  let on_device_with_data (device : Device.t) data : t =
+    let err_ptr = allocate Objc.id nil in
+    let lib =
+      Objc.msg_send ~self:device
+        ~cmd:(selector "newLibraryWithData:error:")
+        ~typ:(ptr void @-> ptr Objc.id @-> returning Objc.id)
+          (* dispatch_data_t maps to ptr void? Check C*)
+        (coerce (ptr void) (ptr void) data)
+        (* Assuming data is already a ptr void representing dispatch_data_t *)
+        err_ptr
+    in
+    check_error "newLibraryWithData" err_ptr;
+    if is_nil lib then failwith "Failed to create library from data (nil returned)";
+    lib
+
+  let new_function_with_name (self : t) name : Function.t =
+    let ns_name = new_string name in
+    let func =
+      Objc.msg_send ~self ~cmd:(selector "newFunctionWithName:")
+        ~typ:(Objc.id @-> returning Objc.id)
+        ns_name
+    in
+    if is_nil func then failwith ("Function not found: " ^ name);
+    func
+
+  (* Skipping newFunctionWithName:constantValues variants for brevity *)
+  (* Skipping newFunctionWithDescriptor variants for brevity *)
+  (* Skipping newIntersectionFunctionWithDescriptor variants for brevity *)
+
+  let get_function_names (self : t) : string array =
+    let ns_array = Objc.msg_send ~self ~cmd:(selector "functionNames") ~typ:(returning Objc.id) in
+    let id_array = from_nsarray ns_array in
+    Array.map ocaml_string_from_nsstring id_array
+
+  let get_library_type (self : t) : CompileOptions.LibraryType.t =
+    let lt_val = Objc.msg_send ~self ~cmd:(selector "type") ~typ:(returning ullong) in
+    lt_val (* It's already the correct type *)
+
+  let get_install_name (self : t) : string option =
+    let ns_name = Objc.msg_send ~self ~cmd:(selector "installName") ~typ:(returning Objc.id) in
+    if is_nil ns_name then None else Some (ocaml_string_from_nsstring ns_name)
+
+  let sexp_of_t t =
+    let label = get_label t in
+    let names = get_function_names t in
+    let ltype = get_library_type t in
+    let install_name = get_install_name t in
+    Sexplib0.Sexp.List
+      [
+        List [ Atom "label"; Atom label ];
+        List [ Atom "type"; CompileOptions.LibraryType.sexp_of_t ltype ];
+        List [ Atom "install_name"; sexp_of_option sexp_of_string install_name ];
+        List [ Atom "functions"; sexp_of_array sexp_of_string names ];
+      ]
+end
+
+(* === Compute Pipeline === *)
 
 module ComputePipelineDescriptor = struct
   type t = id
 
-  let init () =
+  let create () =
     let cls = Objc.get_class "MTLComputePipelineDescriptor" in
     cls |> alloc |> init
 
-  let set_compute_function descriptor function_obj =
-    Objc.msg_send ~self:descriptor ~cmd:(selector "setComputeFunction:")
-      ~typ:(Objc.id @-> returning void)
-      function_obj
+  let set_label (self : t) label = Resource.set_label self label
+  let get_label (self : t) = Resource.get_label self
 
-  let set_support_indirect_command_buffers descriptor support =
-    Objc.msg_send ~self:descriptor
+  let set_compute_function (self : t) (func : Function.t) =
+    Objc.msg_send ~self ~cmd:(selector "setComputeFunction:") ~typ:(Objc.id @-> returning void) func
+
+  let get_compute_function (self : t) : Function.t =
+    Objc.msg_send ~self ~cmd:(selector "computeFunction") ~typ:(returning Objc.id)
+
+  let set_support_indirect_command_buffers (self : t) support =
+    Objc.msg_send ~self
       ~cmd:(selector "setSupportIndirectCommandBuffers:")
       ~typ:(bool @-> returning void)
       support
 
-  let set_label descriptor label =
-    let ns_label =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        label
-    in
-    Objc.msg_send ~self:descriptor ~cmd:(selector "setLabel:")
-      ~typ:(Objc.id @-> returning void)
-      ns_label
+  let get_support_indirect_command_buffers (self : t) : bool =
+    Objc.msg_send ~self ~cmd:(selector "supportIndirectCommandBuffers") ~typ:(returning bool)
+
+  let sexp_of_t t =
+    let label = get_label t in
+    let func = get_compute_function t in
+    let support_icb = get_support_indirect_command_buffers t in
+    Sexplib0.Sexp.List
+      [
+        List [ Atom "label"; Atom label ];
+        List [ Atom "function"; Function.sexp_of_t func ];
+        List [ Atom "support_icb"; Atom (Bool.to_string support_icb) ];
+      ]
+
+  (* Skipping buffers, stageInputDescriptor, dynamic libraries, binary archives, linkedFunctions etc
+     for brevity *)
 end
 
 module ComputePipelineState = struct
   type t = id
 
-  let sexp_of_t _ = Sexplib0.Sexp.Atom "<MTLComputePipelineState>"
+  let on_device_with_function (device : Device.t) ?(options = PipelineOption.none)
+      ?(reflection = false) func : t * _ =
+    let err_ptr = allocate Objc.id nil in
+    let maybe_reflection_ptr = if reflection then allocate Objc.id nil else nil_ptr in
+    let pso =
+      Objc.msg_send ~self:device
+        ~cmd:(selector "newComputePipelineStateWithFunction:options:reflection:error:")
+        ~typ:(Objc.id @-> ullong @-> ptr Objc.id @-> ptr Objc.id @-> returning Objc.id)
+        func options maybe_reflection_ptr err_ptr
+    in
+    check_error "newComputePipelineStateWithFunction" err_ptr;
+    if is_nil pso then failwith "Failed to create compute pipeline state";
+    (pso, maybe_reflection_ptr)
 
-  let on_device device descriptor options =
-    let err_ptr = allocate (ptr Objc.objc_object) Runtime.nil in
-    let pipeline_state =
+  let on_device_with_descriptor (device : Device.t) ?(options = PipelineOption.none)
+      ?(reflection = false) desc : t * _ =
+    let err_ptr = allocate Objc.id nil in
+    let maybe_reflection_ptr = if reflection then allocate Objc.id nil else nil_ptr in
+    let pso =
       Objc.msg_send ~self:device
         ~cmd:(selector "newComputePipelineStateWithDescriptor:options:reflection:error:")
-        ~typ:(Objc.id @-> ulong @-> ptr Objc.id @-> ptr Objc.id @-> returning Objc.id)
-        (descriptor : ComputePipelineDescriptor.t)
-        (options : PipelineOption.t)
-        nil_ptr err_ptr
+        ~typ:(Objc.id @-> ullong @-> ptr Objc.id @-> ptr Objc.id @-> returning Objc.id)
+        desc options maybe_reflection_ptr err_ptr
     in
-    let _ = check_error "newComputePipelineStateWithDescriptor" err_ptr in
-    pipeline_state
+    check_error "newComputePipelineStateWithDescriptor" err_ptr;
+    if is_nil pso then failwith "Failed to create compute pipeline state";
+    (pso, maybe_reflection_ptr)
 
-  let max_total_threads_per_threadgroup pipeline_state =
-    let max_threads =
-      Objc.msg_send ~self:pipeline_state
-        ~cmd:(selector "maxTotalThreadsPerThreadgroup")
-        ~typ:(returning uint)
+  let get_label (self : t) = Resource.get_label self
+  let get_device (self : t) = Resource.get_device self
+
+  let get_max_total_threads_per_threadgroup (self : t) : int =
+    let count =
+      Objc.msg_send ~self ~cmd:(selector "maxTotalThreadsPerThreadgroup") ~typ:(returning ulong)
     in
-    Unsigned.UInt.to_int max_threads
+    Unsigned.ULong.to_int count
 
-  let thread_execution_width pipeline_state =
-    let width =
-      Objc.msg_send ~self:pipeline_state ~cmd:(selector "threadExecutionWidth")
-        ~typ:(returning uint)
-    in
-    Unsigned.UInt.to_int width
+  let get_thread_execution_width (self : t) : int =
+    let width = Objc.msg_send ~self ~cmd:(selector "threadExecutionWidth") ~typ:(returning ulong) in
+    Unsigned.ULong.to_int width
 
-  let static_threadgroup_memory_length pipeline_state =
+  let get_static_threadgroup_memory_length (self : t) : int =
     let length =
-      Objc.msg_send ~self:pipeline_state
-        ~cmd:(selector "staticThreadgroupMemoryLength")
-        ~typ:(returning uint)
+      Objc.msg_send ~self ~cmd:(selector "staticThreadgroupMemoryLength") ~typ:(returning ulong)
     in
-    Unsigned.UInt.to_int length
+    Unsigned.ULong.to_int length
+
+  let get_support_indirect_command_buffers (self : t) : bool =
+    Objc.msg_send ~self ~cmd:(selector "supportIndirectCommandBuffers") ~typ:(returning bool)
+
+  let sexp_of_t t =
+    let label = get_label t in
+    let device = get_device t in
+    let max_total_threads_per_threadgroup = get_max_total_threads_per_threadgroup t in
+    let thread_execution_width = get_thread_execution_width t in
+    let static_threadgroup_memory_length = get_static_threadgroup_memory_length t in
+    let support_indirect_command_buffers = get_support_indirect_command_buffers t in
+    Sexplib0.Sexp.message "<MTLComputePipelineState>"
+      [
+        ("label", Atom label);
+        ("device", Device.sexp_of_t device);
+        ("max_total_threads_per_threadgroup", sexp_of_int max_total_threads_per_threadgroup);
+        ("thread_execution_width", sexp_of_int thread_execution_width);
+        ("static_threadgroup_memory_length", sexp_of_int static_threadgroup_memory_length);
+        ("support_indirect_command_buffers", sexp_of_bool support_indirect_command_buffers);
+      ]
 end
+
+(* === Command Infrastructure === *)
 
 module CommandQueue = struct
   type t = id
 
-  let sexp_of_t _ = Sexplib0.Sexp.Atom "<MTLCommandQueue>"
-
-  let on_device device max_buffer_count =
-    Objc.msg_send ~self:device
-      ~cmd:(selector "newCommandQueueWithMaxCommandBufferCount:")
-      ~typ:(uint @-> returning Objc.id)
-      (Unsigned.UInt.of_int max_buffer_count)
-
-  let command_buffer queue =
-    Objc.msg_send ~self:queue ~cmd:(selector "commandBuffer") ~typ:(returning Objc.id)
-
-  let set_label queue label =
-    let ns_label =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        label
+  let on_device (device : Device.t) : t =
+    let queue =
+      Objc.msg_send ~self:device ~cmd:(selector "newCommandQueue") ~typ:(returning Objc.id)
     in
-    Objc.msg_send ~self:queue ~cmd:(selector "setLabel:") ~typ:(Objc.id @-> returning void) ns_label
+    if is_nil queue then failwith "Failed to create command queue";
+    queue
+
+  let on_device_with_max_buffer_count (device : Device.t) max_count : t =
+    let queue =
+      Objc.msg_send ~self:device
+        ~cmd:(selector "newCommandQueueWithMaxCommandBufferCount:")
+        ~typ:(ulong @-> returning Objc.id)
+        (Unsigned.ULong.of_int max_count)
+    in
+    if is_nil queue then failwith "Failed to create command queue with max buffer count";
+    queue
+
+  let set_label (self : t) label = Resource.set_label self label
+  let get_label (self : t) = Resource.get_label self
+  let get_device (self : t) = Resource.get_device self
+
+  (* insertDebugCaptureBoundary is deprecated *)
+  let sexp_of_t t =
+    let label = get_label t in
+    Sexplib0.Sexp.message "<CommandQueue>"
+      [ ("label", Atom label); ("device", Device.sexp_of_t (get_device t)) ]
 end
 
 module CommandBuffer = struct
   type t = id
 
-  let sexp_of_t _ = Sexplib0.Sexp.Atom "<MTLCommandBuffer>"
+  let set_label (self : t) label = Resource.set_label self label
+  let get_label (self : t) = Resource.get_label self
+  let get_device (self : t) = Resource.get_device self
 
-  let compute_command_encoder buffer =
-    Objc.msg_send ~self:buffer ~cmd:(selector "computeCommandEncoder") ~typ:(returning Objc.id)
+  let get_command_queue (self : t) : CommandQueue.t =
+    Objc.msg_send ~self ~cmd:(selector "commandQueue") ~typ:(returning Objc.id)
 
-  let blit_command_encoder buffer =
-    Objc.msg_send ~self:buffer ~cmd:(selector "blitCommandEncoder") ~typ:(returning Objc.id)
+  let get_retained_references (self : t) : bool =
+    Objc.msg_send ~self ~cmd:(selector "retainedReferences") ~typ:(returning bool)
 
-  let commit buffer = Objc.msg_send ~self:buffer ~cmd:(selector "commit") ~typ:(returning void)
+  let on_queue (queue : CommandQueue.t) : t =
+    (* Returns CommandBuffer.t *)
+    let cb = Objc.msg_send ~self:queue ~cmd:(selector "commandBuffer") ~typ:(returning Objc.id) in
+    if is_nil cb then failwith "Failed to create command buffer";
+    cb
 
-  let wait_until_completed buffer =
-    Objc.msg_send ~self:buffer ~cmd:(selector "waitUntilCompleted") ~typ:(returning void)
-
-  let error buffer =
-    let error_id = Objc.msg_send ~self:buffer ~cmd:(selector "error") ~typ:(returning Objc.id) in
-    if is_nil error_id then None else Some (get_error_description error_id)
-
-  let get_label buffer =
-    let label_id = Objc.msg_send ~self:buffer ~cmd:(selector "label") ~typ:(returning Objc.id) in
-    ocaml_string_from_nsstring label_id
-
-  let set_label buffer label =
-    let ns_label =
-      Objc.msg_send ~self:(Objc.get_class "NSString")
-        ~cmd:(selector "stringWithUTF8String:")
-        ~typ:(string @-> returning Objc.id)
-        label
+  let on_queue_with_unretained_references (queue : CommandQueue.t) : t =
+    (* Returns CommandBuffer.t *)
+    let cb =
+      Objc.msg_send ~self:queue
+        ~cmd:(selector "commandBufferWithUnretainedReferences")
+        ~typ:(returning Objc.id)
     in
-    Objc.msg_send ~self:buffer ~cmd:(selector "setLabel:")
-      ~typ:(Objc.id @-> returning void)
-      ns_label
+    if is_nil cb then failwith "Failed to create command buffer (unretained)";
+    cb
 
-  let gpu_start_time buffer =
-    let time = Objc.msg_send ~self:buffer ~cmd:(selector "GPUStartTime") ~typ:(returning double) in
-    time
+  (* command_buffer_with_descriptor requires MTLCommandBufferDescriptor, skipping for now *)
 
-  let gpu_end_time buffer =
-    let time = Objc.msg_send ~self:buffer ~cmd:(selector "GPUEndTime") ~typ:(returning double) in
-    time
+  let enqueue (self : t) = Objc.msg_send ~self ~cmd:(selector "enqueue") ~typ:(returning void)
+  let commit (self : t) = Objc.msg_send ~self ~cmd:(selector "commit") ~typ:(returning void)
 
-  let encode_signal_event buffer event value =
-    Objc.msg_send ~self:buffer
-      ~cmd:(selector "encodeSignalEvent:value:")
-      ~typ:(Objc.id @-> uint64_t @-> returning void)
-      event (Unsigned.UInt64.of_int value)
+  let add_scheduled_handler (self : t) (handler : t -> unit) =
+    (* The block takes one argument: the command buffer itself (id) *)
+    let block_impl = fun (_block : id) (cmd_buf_arg : id) -> handler cmd_buf_arg in
+    (* args should list the types of arguments *after* the implicit _block *)
+    let block_ptr = Objc_type.(Block.make block_impl ~args:[ id ] ~return:void) in
+    Objc.msg_send ~self ~cmd:(selector "addScheduledHandler:")
+      ~typ:(ptr void @-> returning void) (* Pass the block pointer directly *)
+      block_ptr
 
-  let encode_wait_for_event buffer event value =
-    Objc.msg_send ~self:buffer
+  let add_completed_handler (self : t) (handler : t -> unit) =
+    (* The block takes one argument: the command buffer itself (id) *)
+    let block_impl = fun (_block : id) (cmd_buf_arg : id) -> handler cmd_buf_arg in
+    (* args should list the types of arguments *after* the implicit _block *)
+    let block_ptr = Objc_type.(Block.make block_impl ~args:[ id ] ~return:void) in
+    Objc.msg_send ~self ~cmd:(selector "addCompletedHandler:")
+      ~typ:(ptr void @-> returning void) (* Pass the block pointer directly *)
+      block_ptr
+
+  let wait_until_scheduled (self : t) =
+    Objc.msg_send ~self ~cmd:(selector "waitUntilScheduled") ~typ:(returning void)
+
+  let wait_until_completed (self : t) =
+    Objc.msg_send ~self ~cmd:(selector "waitUntilCompleted") ~typ:(returning void)
+
+  module Status = struct
+    type t = NotEnqueued | Enqueued | Committed | Scheduled | Completed | Error
+    [@@deriving sexp_of]
+
+    let from_uint i =
+      match Unsigned.UInt.to_int i with
+      | 0 -> NotEnqueued
+      | 1 -> Enqueued
+      | 2 -> Committed
+      | 3 -> Scheduled
+      | 4 -> Completed
+      | 5 -> Error
+      | _ -> invalid_arg "Unknown CommandBufferStatus"
+  end
+
+  let get_status (self : t) : Status.t =
+    let status_val = Objc.msg_send ~self ~cmd:(selector "status") ~typ:(returning uint) in
+    Status.from_uint status_val
+
+  let get_error (self : t) : id option =
+    (* NSError *)
+    let err = Objc.msg_send ~self ~cmd:(selector "error") ~typ:(returning Objc.id) in
+    if is_nil err then None else Some err
+
+  let get_gpu_start_time (self : t) : float =
+    Objc.msg_send ~self ~cmd:(selector "GPUStartTime") ~typ:(returning double)
+
+  let get_gpu_end_time (self : t) : float =
+    Objc.msg_send ~self ~cmd:(selector "GPUEndTime") ~typ:(returning double)
+
+  let sexp_of_t t =
+    let label = get_label t in
+    let device = get_device t in
+    let status = get_status t in
+    let error = get_error t in
+    let gpu_start_time = get_gpu_start_time t in
+    let gpu_end_time = get_gpu_end_time t in
+    Sexplib0.Sexp.message "<CommandBuffer>"
+      [
+        ("label", Atom label);
+        ("device", Device.sexp_of_t device);
+        ("status", Status.sexp_of_t status);
+        ("error", Sexplib0.Sexp_conv.sexp_of_option sexp_of_error error);
+        ("gpu_start_time", sexp_of_float gpu_start_time);
+        ("gpu_end_time", sexp_of_float gpu_end_time);
+      ]
+
+  let blit_command_encoder (self : t) : id =
+    (* Returns BlitCommandEncoder.t *)
+    let encoder =
+      Objc.msg_send ~self ~cmd:(selector "blitCommandEncoder") ~typ:(returning Objc.id)
+    in
+    if is_nil encoder then failwith "Failed to create blit command encoder";
+    encoder
+
+  let encode_wait_for_event (self : t) event value =
+    Objc.msg_send ~self
       ~cmd:(selector "encodeWaitForEvent:value:")
-      ~typ:(Objc.id @-> uint64_t @-> returning void)
-      event (Unsigned.UInt64.of_int value)
+      ~typ:(Objc.id @-> ullong @-> returning void)
+      event value
+
+  let encode_signal_event (self : t) event value =
+    Objc.msg_send ~self
+      ~cmd:(selector "encodeSignalEvent:value:")
+      ~typ:(Objc.id @-> ullong @-> returning void)
+      event value
+
+  let push_debug_group (self : t) group_name =
+    let ns_group = new_string group_name in
+    Objc.msg_send ~self ~cmd:(selector "pushDebugGroup:") ~typ:(Objc.id @-> returning void) ns_group
+
+  let pop_debug_group (self : t) =
+    Objc.msg_send ~self ~cmd:(selector "popDebugGroup") ~typ:(returning void)
+
+  (* Skipping renderCommandEncoder, parallelRenderCommandEncoder, resourceStateCommandEncoder,
+     accelerationStructureCommandEncoder *)
+end
+
+module CommandEncoder = struct
+  type t = id
+
+  let set_label (self : t) label = Resource.set_label self label
+  let get_label (self : t) = Resource.get_label self
+  let get_device (self : t) = Resource.get_device self
+
+  let sexp_of_t t =
+    let label = get_label t in
+    let device = get_device t in
+    Sexplib0.Sexp.message "<CommandEncoder>"
+      [ ("label", Atom label); ("device", Device.sexp_of_t device) ]
+
+  let end_encoding (self : t) =
+    Objc.msg_send ~self ~cmd:(selector "endEncoding") ~typ:(returning void)
+
+  let insert_debug_signpost (self : t) signpost =
+    let ns_signpost = new_string signpost in
+    Objc.msg_send ~self ~cmd:(selector "insertDebugSignpost:")
+      ~typ:(Objc.id @-> returning void)
+      ns_signpost
+
+  let push_debug_group (self : t) group_name =
+    let ns_group = new_string group_name in
+    Objc.msg_send ~self ~cmd:(selector "pushDebugGroup:") ~typ:(Objc.id @-> returning void) ns_group
+
+  let pop_debug_group (self : t) =
+    Objc.msg_send ~self ~cmd:(selector "popDebugGroup") ~typ:(returning void)
+end
+
+module ResourceUsage = struct
+  type t = Unsigned.ULLong.t (* MTLResourceUsage is NSUInteger *)
+
+  let read = Unsigned.ULLong.of_int 1 (* 1 << 0 *)
+  let write = Unsigned.ULLong.of_int 2 (* 1 << 1 *)
+  let ( + ) = Unsigned.ULLong.logor
+  let sexp_of_t t = Sexplib0.Sexp.Atom (Unsigned.ULLong.to_string t)
 end
 
 module ComputeCommandEncoder = struct
   type t = id
 
-  let sexp_of_t _ = Sexplib0.Sexp.Atom "<MTLComputeCommandEncoder>"
+  let set_label (self : t) label = CommandEncoder.set_label self label
+  let get_label (self : t) = CommandEncoder.get_label self
+  let get_device (self : t) = CommandEncoder.get_device self
 
-  let use_resources encoder resources count usage =
-    (* Create an array to hold the resources *)
-    let resources_arr = CArray.make (ptr void) count in
-    (* Fill the array with resources *)
-    for i = 0 to count - 1 do
-      CArray.set resources_arr i (coerce Objc.id (ptr void) resources.(i))
-    done;
+  let sexp_of_t t =
+    let label = get_label t in
+    let device = get_device t in
+    Sexplib0.Sexp.message "<ComputeCommandEncoder>"
+      [ ("label", Atom label); ("device", Device.sexp_of_t device) ]
 
-    Objc.msg_send ~self:encoder
-      ~cmd:(selector "useResources:count:usage:")
-      ~typ:(ptr (ptr void) @-> size_t @-> ullong @-> returning void)
-      (CArray.start resources_arr) (Unsigned.Size_t.of_int count) usage
+  let on_buffer (self : CommandBuffer.t) : t =
+    (* Returns ComputeCommandEncoder.t *)
+    let encoder =
+      Objc.msg_send ~self ~cmd:(selector "computeCommandEncoder") ~typ:(returning Objc.id)
+    in
+    if is_nil encoder then failwith "Failed to create compute command encoder";
+    encoder
 
-  let set_compute_pipeline_state encoder pipeline_state =
-    Objc.msg_send ~self:encoder
+  module DispatchType = struct
+    type t = Serial | Concurrent [@@deriving sexp_of]
+
+    let to_uint = function Serial -> Unsigned.UInt.zero | Concurrent -> Unsigned.UInt.one
+  end
+
+  let on_buffer_with_dispatch_type (self : CommandBuffer.t) dispatch_type : t =
+    (* Returns ComputeCommandEncoder.t *)
+    let encoder =
+      Objc.msg_send ~self
+        ~cmd:(selector "computeCommandEncoderWithDispatchType:")
+        ~typ:(uint @-> returning Objc.id)
+        (DispatchType.to_uint dispatch_type)
+    in
+    if is_nil encoder then failwith "Failed to create compute command encoder with dispatch type";
+    encoder
+
+  let end_encoding (self : t) = CommandEncoder.end_encoding self
+  let insert_debug_signpost (self : t) signpost = CommandEncoder.insert_debug_signpost self signpost
+  let push_debug_group (self : t) group_name = CommandEncoder.push_debug_group self group_name
+  let pop_debug_group (self : t) = CommandEncoder.pop_debug_group self
+
+  let set_compute_pipeline_state (self : t) (pso : ComputePipelineState.t) =
+    Objc.msg_send ~self
       ~cmd:(selector "setComputePipelineState:")
       ~typ:(Objc.id @-> returning void)
-      pipeline_state
+      pso
 
-  let dispatch_threadgroups encoder width height depth thread_per_group_width
-      thread_per_group_height thread_per_group_depth =
-    let threadgroups = make Device.mtlsize_t in
-    setf threadgroups Device.width_field (Unsigned.ULong.of_int width);
-    setf threadgroups Device.height_field (Unsigned.ULong.of_int height);
-    setf threadgroups Device.depth_field (Unsigned.ULong.of_int depth);
-
-    let threads_per_threadgroup = make Device.mtlsize_t in
-    setf threads_per_threadgroup Device.width_field (Unsigned.ULong.of_int thread_per_group_width);
-    setf threads_per_threadgroup Device.height_field (Unsigned.ULong.of_int thread_per_group_height);
-    setf threads_per_threadgroup Device.depth_field (Unsigned.ULong.of_int thread_per_group_depth);
-
-    Objc.msg_send ~self:encoder
-      ~cmd:(selector "dispatchThreadgroups:threadsPerThreadgroup:")
-      ~typ:(Device.mtlsize_t @-> Device.mtlsize_t @-> returning void)
-      threadgroups threads_per_threadgroup
-
-  let execute_commands_in_buffer encoder icb range_start range_length =
-    let ns_range = make NSRange.t in
-    setf ns_range NSRange.location (Unsigned.UInt.of_int range_start);
-    setf ns_range NSRange.length (Unsigned.UInt.of_int range_length);
-    Objc.msg_send ~self:encoder
-      ~cmd:(selector "executeCommandsInBuffer:withRange:")
-      ~typ:(Objc.id @-> NSRange.t @-> returning void)
-      icb ns_range
-
-  let end_encoding encoder =
-    Objc.msg_send ~self:encoder ~cmd:(selector "endEncoding") ~typ:(returning void)
-
-  let set_buffer encoder buffer offset index =
-    Objc.msg_send ~self:encoder
+  let set_buffer (self : t) ?(offset = 0) ~index buffer =
+    Objc.msg_send ~self
       ~cmd:(selector "setBuffer:offset:atIndex:")
-      ~typ:(Objc.id @-> uint @-> uint @-> returning void)
-      buffer (Unsigned.UInt.of_int offset) (Unsigned.UInt.of_int index)
+      ~typ:(Objc.id @-> ulong @-> ulong @-> returning void)
+      buffer (Unsigned.ULong.of_int offset) (Unsigned.ULong.of_int index)
 
-  let set_bytes encoder bytes length index =
-    Objc.msg_send ~self:encoder
+  let set_buffers (self : t) ~offsets ~index buffers =
+    let ns_array_buffers = to_nsarray buffers in
+    let lifetime, offsets_ptr =
+      let offsets_array = CArray.(of_list ulong (List.map Unsigned.ULong.of_int offsets)) in
+      offsets_array, CArray.(start offsets_array)
+    in
+    let range = Range.make ~location:index ~length:(List.length buffers) in
+    Objc.msg_send ~self
+      ~cmd:(selector "setBuffers:offsets:withRange:")
+      ~typ:(Objc.id @-> ptr ulong @-> Range.nsrange_t @-> returning void)
+      ns_array_buffers offsets_ptr !@range;
+    ignore (Sys.opaque_identity lifetime)
+
+  let set_bytes (self : t) ~bytes ~length ~index =
+    Objc.msg_send ~self
       ~cmd:(selector "setBytes:length:atIndex:")
-      ~typ:(ptr void @-> size_t @-> uint @-> returning void)
-      bytes (Unsigned.Size_t.of_int length) (Unsigned.UInt.of_int index)
+      ~typ:(ptr void @-> ulong @-> ulong @-> returning void)
+      bytes (Unsigned.ULong.of_int length) (Unsigned.ULong.of_int index)
+
+  let set_threadgroup_memory_length (self : t) ~length ~index =
+    Objc.msg_send ~self
+      ~cmd:(selector "setThreadgroupMemoryLength:atIndex:")
+      ~typ:(ulong @-> ulong @-> returning void)
+      (Unsigned.ULong.of_int length) (Unsigned.ULong.of_int index)
+
+  let dispatch_threadgroups (self : t) ~threadgroups_per_grid ~threads_per_threadgroup =
+    let grid_size_val = Size.to_value threadgroups_per_grid in
+    let group_size_val = Size.to_value threads_per_threadgroup in
+    Objc.msg_send ~self
+      ~cmd:(selector "dispatchThreadgroups:threadsPerThreadgroup:")
+      ~typ:(Size.mtlsize_t @-> Size.mtlsize_t @-> returning void)
+      !@grid_size_val !@group_size_val
+
+  let use_resource (self : t) resource usage =
+    Objc.msg_send ~self ~cmd:(selector "useResource:usage:")
+      ~typ:(Objc.id @-> ullong @-> returning void)
+      resource usage
+
+  let use_resources (self : t) resources usage =
+    let count = List.length resources in
+    let ns_array = to_nsarray ~count resources in
+    Objc.msg_send ~self
+      ~cmd:(selector "useResources:count:usage:")
+      ~typ:(Objc.id @-> ulong @-> ullong @-> returning void)
+      ns_array (Unsigned.ULong.of_int count) usage
+
+  let execute_commands_in_buffer (self : t) buffer range =
+    let ns_range = Range.to_value range in
+    Objc.msg_send ~self
+      ~cmd:(selector "executeCommandsInBuffer:withRange:")
+      ~typ:(Objc.id @-> Range.nsrange_t @-> returning void)
+      buffer !@ns_range
+
+  (* Skipping many other methods (textures, samplers, barriers, events, etc.) for brevity, add as
+     needed *)
 end
 
 module BlitCommandEncoder = struct
   type t = id
 
-  let sexp_of_t _ = Sexplib0.Sexp.Atom "<MTLBlitCommandEncoder>"
+  let set_label (self : t) label = CommandEncoder.set_label self label
+  let get_label (self : t) = CommandEncoder.get_label self
+  let get_device (self : t) = CommandEncoder.get_device self
 
-  let copy_from_buffer encoder src_buffer src_offset dst_buffer dst_offset size =
-    Objc.msg_send ~self:encoder
+  let sexp_of_t t =
+    let label = get_label t in
+    let device = get_device t in
+    Sexplib0.Sexp.message "<BlitCommandEncoder>"
+      [ ("label", Atom label); ("device", Device.sexp_of_t device) ]
+
+  let end_encoding (self : t) = CommandEncoder.end_encoding self
+  let insert_debug_signpost (self : t) signpost = CommandEncoder.insert_debug_signpost self signpost
+  let push_debug_group (self : t) group_name = CommandEncoder.push_debug_group self group_name
+  let pop_debug_group (self : t) = CommandEncoder.pop_debug_group self
+
+  let copy_from_buffer (self : t) ~source_buffer ~source_offset ~destination_buffer
+      ~destination_offset ~size =
+    Objc.msg_send ~self
       ~cmd:(selector "copyFromBuffer:sourceOffset:toBuffer:destinationOffset:size:")
-      ~typ:(Objc.id @-> uint @-> Objc.id @-> uint @-> uint @-> returning void)
-      src_buffer (Unsigned.UInt.of_int src_offset) dst_buffer (Unsigned.UInt.of_int dst_offset)
-      (Unsigned.UInt.of_int size)
+      ~typ:(Objc.id @-> ulong @-> Objc.id @-> ulong @-> ulong @-> returning void)
+      source_buffer
+      (Unsigned.ULong.of_int source_offset)
+      destination_buffer
+      (Unsigned.ULong.of_int destination_offset)
+      (Unsigned.ULong.of_int size)
 
-  let end_encoding encoder =
-    Objc.msg_send ~self:encoder ~cmd:(selector "endEncoding") ~typ:(returning void)
+  let fill_buffer (self : t) buffer range ~value =
+    let ns_range = Range.to_value range in
+    Objc.msg_send ~self
+      ~cmd:(selector "fillBuffer:range:value:")
+      ~typ:(Objc.id @-> Range.nsrange_t @-> uchar @-> returning void)
+      buffer !@ns_range (Unsigned.UChar.of_int value)
+
+  let synchronize_resource (self : t) resource =
+    Objc.msg_send ~self ~cmd:(selector "synchronizeResource:")
+      ~typ:(Objc.id @-> returning void)
+      resource
+
+  let update_fence (self : t) fence =
+    Objc.msg_send ~self ~cmd:(selector "updateFence:") ~typ:(Objc.id @-> returning void) fence
+
+  let wait_for_fence (self : t) fence =
+    Objc.msg_send ~self ~cmd:(selector "waitForFence:") ~typ:(Objc.id @-> returning void) fence
+
+  (* Skipping texture copies for now, add if needed *)
+  (* Skipping generateMipmaps, optimizeContents, indirect command buffer ops *)
+end
+
+(* === Synchronization === *)
+
+module Event = struct
+  type t = id
+
+  let get_device (self : t) : Device.t = Resource.get_device self
+  let set_label (self : t) label = Resource.set_label self label
+  let get_label (self : t) = Resource.get_label self
+
+  let sexp_of_t t =
+    Sexplib0.Sexp.message "<MTLEvent>"
+      [ ("label", Resource.sexp_of_t t); ("device", Device.sexp_of_t (get_device t)) ]
+end
+
+module SharedEvent = struct
+  type t = id
+
+  let on_device (device : Device.t) : t =
+    let ev = Objc.msg_send ~self:device ~cmd:(selector "newSharedEvent") ~typ:(returning Objc.id) in
+    if is_nil ev then failwith "Failed to create shared event";
+    ev
+
+  let get_device (self : t) : Device.t =
+    Resource.get_device self (* SharedEvent inherits from Event *)
+
+  let set_label (self : t) label = Resource.set_label self label
+  let get_label (self : t) = Resource.get_label self
+
+  let set_signaled_value (self : t) value =
+    Objc.msg_send ~self ~cmd:(selector "setSignaledValue:") ~typ:(ullong @-> returning void) value
+
+  let get_signaled_value (self : t) : Unsigned.ULLong.t =
+    Objc.msg_send ~self ~cmd:(selector "signaledValue") ~typ:(returning ullong)
+
+  (* Skipping notifyListener, newSharedEventHandle, waitUntilSignaledValue *)
+  let sexp_of_t t =
+    Sexplib0.Sexp.message "<MTLSharedEvent>"
+      [ ("label", Resource.sexp_of_t t); ("device", Device.sexp_of_t (get_device t)) ]
+end
+
+module Fence = struct
+  type t = id
+
+  let on_device (device : Device.t) : t =
+    let fence = Objc.msg_send ~self:device ~cmd:(selector "newFence") ~typ:(returning Objc.id) in
+    if is_nil fence then failwith "Failed to create fence";
+    fence
+
+  let get_device (self : t) : Device.t = Resource.get_device self
+  let set_label (self : t) label = Resource.set_label self label
+  let get_label (self : t) = Resource.get_label self
+
+  let sexp_of_t t =
+    Sexplib0.Sexp.message "<MTLFence>"
+      [ ("label", Resource.sexp_of_t t); ("device", Device.sexp_of_t (get_device t)) ]
+end
+
+(* === Indirect Command Buffers === *)
+
+module IndirectCommandType = struct
+  type t = Unsigned.ULLong.t (* MTLIndirectCommandType is NSUInteger *)
+
+  let draw = Unsigned.ULLong.of_int 1 (* 1 << 0 *)
+  let draw_indexed = Unsigned.ULLong.of_int 2 (* 1 << 1 *)
+  let draw_patches = Unsigned.ULLong.of_int 4 (* 1 << 2, macOS only *)
+  let draw_indexed_patches = Unsigned.ULLong.of_int 8 (* 1 << 3, macOS only *)
+  let concurrent_dispatch = Unsigned.ULLong.of_int 32 (* 1 << 5 *)
+  let concurrent_dispatch_threads = Unsigned.ULLong.of_int 64 (* 1 << 6 *)
+  let ( + ) = Unsigned.ULLong.logor
+  let sexp_of_t t = Sexplib0.Sexp.Atom (Unsigned.ULLong.to_string t)
+end
+
+module IndirectCommandBufferDescriptor = struct
+  type t = id
+
+  let create () =
+    let cls = Objc.get_class "MTLIndirectCommandBufferDescriptor" in
+    cls |> alloc |> init
+
+  let set_command_types (self : t) types =
+    Objc.msg_send ~self ~cmd:(selector "setCommandTypes:") ~typ:(ullong @-> returning void) types
+
+  let get_command_types (self : t) : IndirectCommandType.t =
+    Objc.msg_send ~self ~cmd:(selector "commandTypes") ~typ:(returning ullong)
+
+  let set_inherit_pipeline_state (self : t) inherit_pso =
+    Objc.msg_send ~self
+      ~cmd:(selector "setInheritPipelineState:")
+      ~typ:(bool @-> returning void)
+      inherit_pso
+
+  let get_inherit_pipeline_state (self : t) : bool =
+    Objc.msg_send ~self ~cmd:(selector "inheritPipelineState") ~typ:(returning bool)
+
+  let set_inherit_buffers (self : t) inherit_buffers =
+    Objc.msg_send ~self ~cmd:(selector "setInheritBuffers:")
+      ~typ:(bool @-> returning void)
+      inherit_buffers
+
+  let get_inherit_buffers (self : t) : bool =
+    Objc.msg_send ~self ~cmd:(selector "inheritBuffers") ~typ:(returning bool)
+
+  let set_max_kernel_buffer_bind_count (self : t) count =
+    Objc.msg_send ~self
+      ~cmd:(selector "setMaxKernelBufferBindCount:")
+      ~typ:(ulong @-> returning void)
+      (Unsigned.ULong.of_int count)
+
+  let get_max_kernel_buffer_bind_count (self : t) : int =
+    let count =
+      Objc.msg_send ~self ~cmd:(selector "maxKernelBufferBindCount") ~typ:(returning ulong)
+    in
+    Unsigned.ULong.to_int count
+
+  (* Skipping maxVertexBufferBindCount, maxFragmentBufferBindCount as they are graphics related *)
+
+  let sexp_of_t t =
+    let command_types = get_command_types t in
+    let inherit_pipeline_state = get_inherit_pipeline_state t in
+    let inherit_buffers = get_inherit_buffers t in
+    let max_kernel_buffer_bind_count = get_max_kernel_buffer_bind_count t in
+    Sexplib0.Sexp.message "<IndirectCommandBufferDescriptor>"
+      [
+        ("command_types", IndirectCommandType.sexp_of_t command_types);
+        ("inherit_pipeline_state", sexp_of_bool inherit_pipeline_state);
+        ("inherit_buffers", sexp_of_bool inherit_buffers);
+        ("max_kernel_buffer_bind_count", sexp_of_int max_kernel_buffer_bind_count);
+      ]
+end
+
+module IndirectComputeCommand = struct
+  type t = id
+
+  let sexp_of_t _t = Sexplib0.Sexp.Atom "<IndirectComputeCommand>"
+
+  let set_compute_pipeline_state (self : t) (pso : ComputePipelineState.t) =
+    Objc.msg_send ~self
+      ~cmd:(selector "setComputePipelineState:")
+      ~typ:(Objc.id @-> returning void)
+      pso
+
+  let set_kernel_buffer (self : t) ?(offset = 0) ~index buffer =
+    Objc.msg_send ~self
+      ~cmd:(selector "setKernelBuffer:offset:atIndex:")
+      ~typ:(Objc.id @-> ulong @-> ulong @-> returning void)
+      buffer (Unsigned.ULong.of_int offset) (Unsigned.ULong.of_int index)
+
+  let concurrent_dispatch_threadgroups (self : t) ~threadgroups_per_grid ~threads_per_threadgroup =
+    let grid_size_val = Size.to_value threadgroups_per_grid in
+    let group_size_val = Size.to_value threads_per_threadgroup in
+    Objc.msg_send ~self
+      ~cmd:(selector "concurrentDispatchThreadgroups:threadsPerThreadgroup:")
+      ~typ:(Size.mtlsize_t @-> Size.mtlsize_t @-> returning void)
+      !@grid_size_val !@group_size_val
+
+  let set_barrier (self : t) =
+    Objc.msg_send ~self ~cmd:(selector "setBarrier") ~typ:(returning void)
+
+  (* Skipping setKernelBytes, setThreadgroupMemoryLength, setStageInRegion, reset *)
+end
+
+module IndirectCommandBuffer = struct
+  type t = id
+
+  let on_device_with_descriptor (device : Device.t) descriptor ~max_command_count ~options : t =
+    let icb =
+      Objc.msg_send ~self:device
+        ~cmd:(selector "newIndirectCommandBufferWithDescriptor:maxCommandCount:options:")
+        ~typ:(Objc.id @-> ulong @-> ullong @-> returning Objc.id)
+        descriptor
+        (Unsigned.ULong.of_int max_command_count)
+        options
+    in
+    if is_nil icb then failwith "Failed to create indirect command buffer";
+    icb
+
+  let get_size (self : t) : int =
+    let size = Objc.msg_send ~self ~cmd:(selector "size") ~typ:(returning ulong) in
+    Unsigned.ULong.to_int size
+
+  let sexp_of_t t =
+    Sexplib0.Sexp.message "<MTLIndirectCommandBuffer>"
+      [ ("size", sexp_of_int (get_size t)); ("resource", Resource.sexp_of_t t) ]
+
+  let indirect_compute_command_at_index (self : t) index : IndirectComputeCommand.t =
+    Objc.msg_send ~self
+      ~cmd:(selector "indirectComputeCommandAtIndex:")
+      ~typ:(ulong @-> returning Objc.id)
+      (Unsigned.ULong.of_int index)
+
+  (* Skipping indirect_render_command_at_index *)
+
+  let reset_with_range (self : t) range =
+    let ns_range = Range.to_value range in
+    Objc.msg_send ~self ~cmd:(selector "resetWithRange:")
+      ~typ:(Range.nsrange_t @-> returning void)
+      !@ns_range
+end
+
+(* === Dynamic Library Placeholder === *)
+(* Binding MTLDynamicLibrary requires more setup (compile options, linking) *)
+module DynamicLibrary = struct
+  type t = id
+
+  let sexp_of_t _t = Sexplib0.Sexp.Atom "<DynamicLibrary>"
+  (* Add bindings here if needed *)
 end
