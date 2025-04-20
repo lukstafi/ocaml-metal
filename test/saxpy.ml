@@ -34,11 +34,9 @@ let%expect_test "SAXPY kernel computation test" =
   (* 1. Initialize Metal *)
   let device = Metal.Device.create_system_default () in
   Printf.printf "Metal device created successfully.\n";
-  [%expect {| Metal device created successfully. |}];
 
   let command_queue = Metal.CommandQueue.on_device device in
   Printf.printf "Command queue created successfully.\n";
-  [%expect {| Command queue created successfully. |}];
 
   (* 2. Prepare Data *)
   let array_length = 1024 * 1024 in
@@ -64,7 +62,6 @@ let%expect_test "SAXPY kernel computation test" =
   let buffer_y = Metal.Buffer.on_device device ~length:buffer_size options in
   let buffer_a = Metal.Buffer.on_device device ~length:(sizeof float) options in
   Printf.printf "Metal buffers created successfully.\n";
-  [%expect {| Metal buffers created successfully. |}];
 
   (* Copy data to buffers *)
   copy_bigarray_to_buffer x_ba buffer_x;
@@ -76,7 +73,6 @@ let%expect_test "SAXPY kernel computation test" =
   Metal.Buffer.did_modify_range buffer_a {location = 0; length = sizeof float};
 
   Printf.printf "Data copied to buffers.\n";
-  [%expect {| Data copied to buffers. |}];
 
   (* 3. Compile the Kernel *)
   (* Create Compile Options *)
@@ -91,7 +87,6 @@ let%expect_test "SAXPY kernel computation test" =
   let function_name = "saxpy_kernel" in
   let saxpy_function = Metal.Library.new_function_with_name library function_name in
   Printf.printf "Kernel function '%s' obtained.\n" function_name;
-  [%expect {| Kernel function 'saxpy_kernel' obtained. |}];
 
   (* 4. Create Pipeline State *)
   (* Assign nil_ptr to the location pointed by error_ptr *)
@@ -104,7 +99,6 @@ let%expect_test "SAXPY kernel computation test" =
 
   let compute_encoder = Metal.ComputeCommandEncoder.on_buffer command_buffer in
   Printf.printf "Command buffer and encoder created.\n";
-  [%expect {| Command buffer and encoder created. |}];
 
   (* 6. Set Up Encoder *)
   Metal.ComputeCommandEncoder.set_compute_pipeline_state compute_encoder pipeline_state;
@@ -125,18 +119,15 @@ let%expect_test "SAXPY kernel computation test" =
     ~threadgroups_per_grid:{ width = array_length; height = 1; depth = 1 }
     ~threads_per_threadgroup:{ width = thread_execution_width; height = 1; depth = 1 };
   Printf.printf "Kernel dispatched.\n";
-  [%expect {| Kernel dispatched. |}];
 
   (* 8. End Encoding and Commit *)
   Metal.ComputeCommandEncoder.end_encoding compute_encoder;
   Metal.CommandBuffer.commit command_buffer;
   Printf.printf "Command buffer committed.\n";
-  [%expect {| Command buffer committed. |}];
 
   (* 9. Wait for Completion *)
   Metal.CommandBuffer.wait_until_completed command_buffer;
   Printf.printf "Computation completed.\n";
-  [%expect {| Computation completed. |}];
 
   (* Check for command buffer errors *)
   let command_buffer_error = Metal.CommandBuffer.get_error command_buffer in
@@ -157,7 +148,6 @@ let%expect_test "SAXPY kernel computation test" =
   in
 
   Printf.printf "Starting verification of results...\n";
-  [%expect {| Starting verification of results... |}];
 
   let verify_results () =
     let tolerance = 1e-5 in
@@ -165,6 +155,8 @@ let%expect_test "SAXPY kernel computation test" =
     for i = 0 to array_length - 1 do
       let expected = (a_val *. float_of_int i) +. float_of_int (array_length - i) in
       let actual = result_ba.{i} in
+      if i < 10 || i > array_length - 10 then
+        Printf.printf "At index %d: Expected %f, Got %f\n" i expected actual;
       if abs_float (actual -. expected) > tolerance then (
         if !errors < 10 then (* Print first few errors *)
           Printf.printf "Verification failed at index %d: Expected %f, Got %f\n" i expected actual;
@@ -175,4 +167,35 @@ let%expect_test "SAXPY kernel computation test" =
   in
 
   verify_results ();
-  [%expect {| Verification successful! |}]
+  [%expect {|
+    Metal device created successfully.
+    Command queue created successfully.
+    Metal buffers created successfully.
+    Data copied to buffers.
+    Kernel function 'saxpy_kernel' obtained.
+    Command buffer and encoder created.
+    Kernel dispatched.
+    Command buffer committed.
+    Computation completed.
+    Starting verification of results...
+    At index 0: Expected 1048576.000000, Got 1048576.000000
+    At index 1: Expected 1048577.000000, Got 1048577.000000
+    At index 2: Expected 1048578.000000, Got 1048578.000000
+    At index 3: Expected 1048579.000000, Got 1048579.000000
+    At index 4: Expected 1048580.000000, Got 1048580.000000
+    At index 5: Expected 1048581.000000, Got 1048581.000000
+    At index 6: Expected 1048582.000000, Got 1048582.000000
+    At index 7: Expected 1048583.000000, Got 1048583.000000
+    At index 8: Expected 1048584.000000, Got 1048584.000000
+    At index 9: Expected 1048585.000000, Got 1048585.000000
+    At index 1048567: Expected 2097143.000000, Got 2097143.000000
+    At index 1048568: Expected 2097144.000000, Got 2097144.000000
+    At index 1048569: Expected 2097145.000000, Got 2097145.000000
+    At index 1048570: Expected 2097146.000000, Got 2097146.000000
+    At index 1048571: Expected 2097147.000000, Got 2097147.000000
+    At index 1048572: Expected 2097148.000000, Got 2097148.000000
+    At index 1048573: Expected 2097149.000000, Got 2097149.000000
+    At index 1048574: Expected 2097150.000000, Got 2097150.000000
+    At index 1048575: Expected 2097151.000000, Got 2097151.000000
+    Verification successful!
+    |}]
