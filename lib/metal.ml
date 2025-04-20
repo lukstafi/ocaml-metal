@@ -634,6 +634,7 @@ module Buffer = struct
   type t = id
 
   let sexp_of_t = Resource.sexp_of_t (* Buffers are Resources *)
+  let super b = b
 
   let on_device (device : Device.t) ~length options : t =
     let buf =
@@ -1087,21 +1088,13 @@ module CommandBuffer = struct
         ("gpu_end_time", sexp_of_float gpu_end_time);
       ]
 
-  let blit_command_encoder (self : t) : id =
-    (* Returns BlitCommandEncoder.t *)
-    let encoder =
-      Objc.msg_send ~self ~cmd:(selector "blitCommandEncoder") ~typ:(returning Objc.id)
-    in
-    if is_nil encoder then failwith "Failed to create blit command encoder";
-    encoder
-
-  let encode_wait_for_event (self : t) event value =
+  let encode_wait_for_event self event value =
     Objc.msg_send ~self
       ~cmd:(selector "encodeWaitForEvent:value:")
       ~typ:(Objc.id @-> ullong @-> returning void)
       event value
 
-  let encode_signal_event (self : t) event value =
+  let encode_signal_event self event value =
     Objc.msg_send ~self
       ~cmd:(selector "encodeSignalEvent:value:")
       ~typ:(Objc.id @-> ullong @-> returning void)
@@ -1216,7 +1209,7 @@ module ComputeCommandEncoder = struct
     let ns_array_buffers = to_nsarray buffers in
     let lifetime, offsets_ptr =
       let offsets_array = CArray.(of_list ulong (List.map Unsigned.ULong.of_int offsets)) in
-      offsets_array, CArray.(start offsets_array)
+      (offsets_array, CArray.(start offsets_array))
     in
     let range = Range.make ~location:index ~length:(List.length buffers) in
     Objc.msg_send ~self
@@ -1282,6 +1275,14 @@ module BlitCommandEncoder = struct
     Sexplib0.Sexp.message "<BlitCommandEncoder>"
       [ ("label", Atom label); ("device", Device.sexp_of_t device) ]
 
+  let on_buffer (self : CommandBuffer.t) : t =
+    (* Returns BlitCommandEncoder.t *)
+    let encoder =
+      Objc.msg_send ~self ~cmd:(selector "blitCommandEncoder") ~typ:(returning Objc.id)
+    in
+    if is_nil encoder then failwith "Failed to create blit command encoder";
+    encoder
+
   let end_encoding (self : t) = CommandEncoder.end_encoding self
   let insert_debug_signpost (self : t) signpost = CommandEncoder.insert_debug_signpost self signpost
   let push_debug_group (self : t) group_name = CommandEncoder.push_debug_group self group_name
@@ -1299,6 +1300,7 @@ module BlitCommandEncoder = struct
       (Unsigned.ULong.of_int size)
 
   let fill_buffer (self : t) buffer range ~value =
+    if value < 0 || value > 255 then failwith "Invalid value for fill_buffer";
     let ns_range = Range.to_value range in
     Objc.msg_send ~self
       ~cmd:(selector "fillBuffer:range:value:")
@@ -1353,6 +1355,8 @@ module SharedEvent = struct
       if is_nil ns_label then None else Some (ocaml_string_from_nsstring ns_label)
   end
 
+  let super e = e
+
   let on_device (device : Device.t) : t =
     let ev = Objc.msg_send ~self:device ~cmd:(selector "newSharedEvent") ~typ:(returning Objc.id) in
     if is_nil ev then failwith "Failed to create shared event";
@@ -1373,7 +1377,7 @@ module SharedEvent = struct
   let notify_listener (self : t) (listener : SharedEventListener.t) ~value
       (handler : t -> Unsigned.ULLong.t -> unit) =
     let block_impl =
-      fun (_block : id) (event_arg : id) (value_arg : Unsigned.ULLong.t) ->
+     fun (_block : id) (event_arg : id) (value_arg : Unsigned.ULLong.t) ->
       handler event_arg value_arg
     in
     let block_ptr = Objc_type.(Block.make block_impl ~args:[ id; ullong ] ~return:void) in
@@ -1384,8 +1388,7 @@ module SharedEvent = struct
 
   let new_shared_event_handle (self : t) : SharedEventHandle.t =
     let handle =
-      Objc.msg_send ~self ~cmd:(selector "newSharedEventHandle")
-        ~typ:(returning Objc.id)
+      Objc.msg_send ~self ~cmd:(selector "newSharedEventHandle") ~typ:(returning Objc.id)
     in
     if is_nil handle then failwith "Failed to create shared event handle";
     handle

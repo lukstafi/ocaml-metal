@@ -360,6 +360,8 @@ end
 module Buffer : sig
   type t [@@deriving sexp_of]
 
+  val super : t -> Resource.t
+
   val on_device : Device.t -> length:int -> ResourceOptions.t -> t
   (** Creates a new buffer on the specified device. *)
 
@@ -548,6 +550,16 @@ module CommandQueue : sig
   val get_device : t -> Device.t
 end
 
+(** An object used for GPU-GPU synchronization within a single device. See
+    {{:https://developer.apple.com/documentation/metal/mtlevent} MTLEvent}. *)
+module Event : sig
+  type t [@@deriving sexp_of]
+
+  val get_device : t -> Device.t
+  val set_label : t -> string -> unit
+  val get_label : t -> string
+end
+
 (** A container for encoded commands that the GPU executes. See
     {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer} MTLCommandBuffer}. *)
 module CommandBuffer : sig
@@ -609,13 +621,10 @@ module CommandBuffer : sig
   val get_gpu_end_time : t -> float
   (** Gets the host time (seconds) when the GPU finished executing the buffer. *)
 
-  val blit_command_encoder : t -> id
-  (** Creates a blit command encoder for this buffer. Returns BlitCommandEncoder.t *)
-
-  val encode_wait_for_event : t -> id -> Unsigned.ULLong.t -> unit
+  val encode_wait_for_event : t -> Event.t -> Unsigned.ULLong.t -> unit
   (** Encodes a command to wait for an event. *)
 
-  val encode_signal_event : t -> id -> Unsigned.ULLong.t -> unit
+  val encode_signal_event : t -> Event.t -> Unsigned.ULLong.t -> unit
   (** Encodes a command to signal an event. *)
 
   val push_debug_group : t -> string -> unit
@@ -743,6 +752,9 @@ module BlitCommandEncoder : sig
   val push_debug_group : t -> string -> unit
   val pop_debug_group : t -> unit
 
+  val on_buffer : CommandBuffer.t -> t
+  (** Creates a blit command encoder for the given buffer. *)
+
   val copy_from_buffer :
     t ->
     source_buffer:Buffer.t ->
@@ -754,7 +766,7 @@ module BlitCommandEncoder : sig
   (** Copies data between buffers. *)
 
   val fill_buffer : t -> Buffer.t -> Range.t -> value:int -> unit
-  (** Fills a buffer range with a byte value. *)
+  (** Fills a buffer range with a {i byte} value (0-255). *)
 
   val synchronize_resource : t -> Resource.t -> unit
   (** Synchronizes a managed resource between CPU and GPU. *)
@@ -767,16 +779,6 @@ module BlitCommandEncoder : sig
 end
 
 (* === Synchronization === *)
-
-(** An object used for GPU-GPU synchronization within a single device. See
-    {{:https://developer.apple.com/documentation/metal/mtlevent} MTLEvent}. *)
-module Event : sig
-  type t [@@deriving sexp_of]
-
-  val get_device : t -> Device.t
-  val set_label : t -> string -> unit
-  val get_label : t -> string
-end
 
 (** An object used for GPU-GPU or CPU-GPU synchronization, potentially across multiple devices or
     processes. See
@@ -806,6 +808,8 @@ module SharedEvent : sig
     (** The label associated with the original shared event. *)
   end
 
+  val super : t -> Event.t
+
   val on_device : Device.t -> t
   (** Creates a new shared event on the specified device. *)
 
@@ -819,7 +823,12 @@ module SharedEvent : sig
   val get_signaled_value : t -> Unsigned.ULLong.t
   (** Gets the event's current signaled value. *)
 
-  val notify_listener : t -> SharedEventListener.t -> value:Unsigned.ULLong.t -> (t -> Unsigned.ULLong.t -> unit) -> unit
+  val notify_listener :
+    t ->
+    SharedEventListener.t ->
+    value:Unsigned.ULLong.t ->
+    (t -> Unsigned.ULLong.t -> unit) ->
+    unit
   (** Schedules a notification handler block to be called when the event's signaled value reaches or
       exceeds the specified value. See
       {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2966580-notifylistener?language=objc}
@@ -830,9 +839,10 @@ module SharedEvent : sig
       {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2966579-newsharedeventhandle?language=objc}
        newSharedEventHandle}. *)
 
-  val wait_until_signaled_value : t -> value:Unsigned.ULLong.t -> timeout_ms:Unsigned.ULLong.t -> bool
-  (** Synchronously waits until the signaled value reaches or exceeds the target value, or the timeout
-      elapses. Returns [true] if the value was reached, [false] on timeout. See
+  val wait_until_signaled_value :
+    t -> value:Unsigned.ULLong.t -> timeout_ms:Unsigned.ULLong.t -> bool
+  (** Synchronously waits until the signaled value reaches or exceeds the target value, or the
+      timeout elapses. Returns [true] if the value was reached, [false] on timeout. See
       {{:https://developer.apple.com/documentation/metal/mtlsharedevent/3553987-waituntilsignaledvalue?language=objc}
        waitUntilSignaledValue:timeoutMS:}. *)
 end
