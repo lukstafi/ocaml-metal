@@ -22,6 +22,7 @@ let%expect_test "Error handling with invalid library code" =
   (* This should fail with a compiler error *)
   try
     let library = Library.on_device device ~source:invalid_kernel_source compile_options in
+    ignore library; (* Explicitly ignore to fix warning *)
     Printf.printf "ERROR: Library compilation should have failed but didn't\n";
   with Failure msg ->
     Printf.printf "Expected error occurred: %s\n" 
@@ -50,6 +51,7 @@ let%expect_test "Error handling with invalid function name" =
   (* Try to get a function that doesn't exist *)
   try
     let func = Library.new_function_with_name library "nonexistent_function" in
+    ignore func; (* Explicitly ignore to fix warning *)
     Printf.printf "ERROR: Function lookup should have failed\n";
   with Failure msg ->
     Printf.printf "Expected error occurred: %s\n" msg;

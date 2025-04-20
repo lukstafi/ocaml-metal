@@ -227,15 +227,15 @@ let%expect_test "Indirect command buffer basics" =
 
   (* Create kernel *)
   let kernel_source =
-    "\n\
-    \    #include <metal_stdlib>\n\
-    \    using namespace metal;\n\
-    \    \n\
-    \    kernel void double_values(device float *buffer [[buffer(0)]],\n\
-    \                             uint index [[thread_position_in_grid]]) {\n\
-    \      buffer[index] = buffer[index] * 2.0;\n\
-    \    }\n\
-    \  "
+    {|
+    #include <metal_stdlib>
+    using namespace metal;
+
+    kernel void double_values(device float *buffer [[buffer(0)]],
+                              uint index [[thread_position_in_grid]]) {
+      buffer[index] = buffer[index] * 2.0;
+    }
+  |}
   in
 
   let compile_options = CompileOptions.init () in

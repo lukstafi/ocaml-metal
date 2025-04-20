@@ -20,15 +20,17 @@ let copy_bigarray_to_buffer ba (buffer : Metal.Buffer.t) =
 
 (* Metal Shading Language (MSL) kernel for SAXPY *)
 let saxpy_kernel_source =
-  "\n\
-  \  #include <metal_stdlib>\n\
-  \  using namespace metal;\n\n\
-  \  kernel void saxpy_kernel(device float *y [[buffer(0)]],\n\
-  \                           device const float *x [[buffer(1)]],\n\
-  \                           device const float *a [[buffer(2)]],\n\
-  \                           uint index [[thread_position_in_grid]]) {\n\
-  \    y[index] = (*a) * x[index] + y[index];\n\
-  \  }\n"
+  {|
+  #include <metal_stdlib>
+  using namespace metal;
+
+  kernel void saxpy_kernel(device float *y [[buffer(0)]],
+                           device const float *x [[buffer(1)]],
+                           device const float *a [[buffer(2)]],
+                           uint index [[thread_position_in_grid]]) {
+    y[index] = (*a) * x[index] + y[index];
+  }
+  |}
 
 let%expect_test "SAXPY kernel computation test" =
   (* 1. Initialize Metal *)
