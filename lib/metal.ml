@@ -1337,6 +1337,22 @@ end
 module SharedEvent = struct
   type t = id
 
+  module SharedEventListener = struct
+    type t = id
+
+    let init () =
+      let cls = Objc.get_class "MTLSharedEventListener" in
+      cls |> alloc |> init
+  end
+
+  module SharedEventHandle = struct
+    type t = id
+
+    let get_label self =
+      let ns_label = Objc.msg_send ~self ~cmd:(selector "label") ~typ:(returning Objc.id) in
+      if is_nil ns_label then None else Some (ocaml_string_from_nsstring ns_label)
+  end
+
   let on_device (device : Device.t) : t =
     let ev = Objc.msg_send ~self:device ~cmd:(selector "newSharedEvent") ~typ:(returning Objc.id) in
     if is_nil ev then failwith "Failed to create shared event";
@@ -1353,6 +1369,32 @@ module SharedEvent = struct
 
   let get_signaled_value (self : t) : Unsigned.ULLong.t =
     Objc.msg_send ~self ~cmd:(selector "signaledValue") ~typ:(returning ullong)
+
+  let notify_listener (self : t) (listener : SharedEventListener.t) ~value
+      (handler : t -> Unsigned.ULLong.t -> unit) =
+    let block_impl =
+      fun (_block : id) (event_arg : id) (value_arg : Unsigned.ULLong.t) ->
+      handler event_arg value_arg
+    in
+    let block_ptr = Objc_type.(Block.make block_impl ~args:[ id; ullong ] ~return:void) in
+    Objc.msg_send ~self
+      ~cmd:(selector "notifyListener:atValue:block:")
+      ~typ:(Objc.id @-> ullong @-> ptr void @-> returning void)
+      listener value block_ptr
+
+  let new_shared_event_handle (self : t) : SharedEventHandle.t =
+    let handle =
+      Objc.msg_send ~self ~cmd:(selector "newSharedEventHandle")
+        ~typ:(returning Objc.id)
+    in
+    if is_nil handle then failwith "Failed to create shared event handle";
+    handle
+
+  let wait_until_signaled_value (self : t) ~value ~timeout_ms : bool =
+    Objc.msg_send ~self
+      ~cmd:(selector "waitUntilSignaledValue:timeoutMS:")
+      ~typ:(ullong @-> ullong @-> returning bool)
+      value timeout_ms
 
   (* Skipping notifyListener, newSharedEventHandle, waitUntilSignaledValue *)
   let sexp_of_t t =

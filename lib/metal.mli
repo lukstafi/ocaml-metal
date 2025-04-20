@@ -784,6 +784,28 @@ end
 module SharedEvent : sig
   type t [@@deriving sexp_of]
 
+  (** Provides a simple interface for handling MTLSharedEvent notifications. See
+      {{:https://developer.apple.com/documentation/metal/mtlsharedeventlistener?language=objc}
+       MTLSharedEventListener}. *)
+  module SharedEventListener : sig
+    type t
+
+    val init : unit -> t
+    (** Creates a default listener with its own dispatch queue. See
+        {{:https://developer.apple.com/documentation/metal/mtlsharedeventlistener/2966578-init?language=objc}
+         init}. *)
+  end
+
+  (** A serializable object used to recreate a MTLSharedEvent object in another process. See
+      {{:https://developer.apple.com/documentation/metal/mtlsharedeventhandle?language=objc}
+       MTLSharedEventHandle}. *)
+  module SharedEventHandle : sig
+    type t
+
+    val get_label : t -> string option
+    (** The label associated with the original shared event. *)
+  end
+
   val on_device : Device.t -> t
   (** Creates a new shared event on the specified device. *)
 
@@ -796,6 +818,23 @@ module SharedEvent : sig
 
   val get_signaled_value : t -> Unsigned.ULLong.t
   (** Gets the event's current signaled value. *)
+
+  val notify_listener : t -> SharedEventListener.t -> value:Unsigned.ULLong.t -> (t -> Unsigned.ULLong.t -> unit) -> unit
+  (** Schedules a notification handler block to be called when the event's signaled value reaches or
+      exceeds the specified value. See
+      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2966580-notifylistener?language=objc}
+       notifyListener:atValue:block:}. *)
+
+  val new_shared_event_handle : t -> SharedEventHandle.t
+  (** Creates a serializable handle for this shared event. See
+      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2966579-newsharedeventhandle?language=objc}
+       newSharedEventHandle}. *)
+
+  val wait_until_signaled_value : t -> value:Unsigned.ULLong.t -> timeout_ms:Unsigned.ULLong.t -> bool
+  (** Synchronously waits until the signaled value reaches or exceeds the target value, or the timeout
+      elapses. Returns [true] if the value was reached, [false] on timeout. See
+      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/3553987-waituntilsignaledvalue?language=objc}
+       waitUntilSignaledValue:timeoutMS:}. *)
 end
 
 (* === Indirect Command Buffers === *)
