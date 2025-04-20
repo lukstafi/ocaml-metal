@@ -716,6 +716,19 @@ module ComputeCommandEncoder : sig
   (** Executes commands from an indirect command buffer. Requires IndirectCommandBuffer.t *)
 end
 
+(** An object used for fine-grained resource synchronization within a command encoder. See
+    {{:https://developer.apple.com/documentation/metal/mtlfence} MTLFence}. *)
+module Fence : sig
+  type t [@@deriving sexp_of]
+
+  val on_device : Device.t -> t
+  (** Creates a new fence on the specified device. *)
+
+  val get_device : t -> Device.t
+  val set_label : t -> string -> unit
+  val get_label : t -> string
+end
+
 (** Encodes resource copy and synchronization commands. See
     {{:https://developer.apple.com/documentation/metal/mtlblitcommandencoder} MTLBlitCommandEncoder}.
 *)
@@ -746,10 +759,10 @@ module BlitCommandEncoder : sig
   val synchronize_resource : t -> Resource.t -> unit
   (** Synchronizes a managed resource between CPU and GPU. *)
 
-  val update_fence : t -> id -> unit
+  val update_fence : t -> Fence.t -> unit
   (** Updates a fence after commands encoded so far. Requires Fence.t *)
 
-  val wait_for_fence : t -> id -> unit
+  val wait_for_fence : t -> Fence.t -> unit
   (** Waits for a fence before executing subsequent commands. Requires Fence.t *)
 end
 
@@ -774,9 +787,7 @@ module SharedEvent : sig
   val on_device : Device.t -> t
   (** Creates a new shared event on the specified device. *)
 
-  val get_device :
-    t -> Device.t (* Returns nil, according to docs - binding needs adjustment or clarification *)
-
+  val get_device : t -> Device.t
   val set_label : t -> string -> unit
   val get_label : t -> string
 
@@ -785,19 +796,6 @@ module SharedEvent : sig
 
   val get_signaled_value : t -> Unsigned.ULLong.t
   (** Gets the event's current signaled value. *)
-end
-
-(** An object used for fine-grained resource synchronization within a command encoder. See
-    {{:https://developer.apple.com/documentation/metal/mtlfence} MTLFence}. *)
-module Fence : sig
-  type t [@@deriving sexp_of]
-
-  val on_device : Device.t -> t
-  (** Creates a new fence on the specified device. *)
-
-  val get_device : t -> Device.t
-  val set_label : t -> string -> unit
-  val get_label : t -> string
 end
 
 (* === Indirect Command Buffers === *)
