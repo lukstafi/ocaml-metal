@@ -6,16 +6,17 @@ let%expect_test "Device creation and attributes" =
   Printf.printf "Device created successfully\n";
 
   let attrs = Device.get_attributes device in
-  Printf.printf "Device name: %s\n" attrs.name;
+  Printf.printf "Device name prefix: %s\n" (String.sub attrs.name 0 7);
   Printf.printf "Has unified memory: %b\n" attrs.has_unified_memory;
-  Printf.printf "Max buffer length: %s\n" (Unsigned.ULong.to_string attrs.max_buffer_length);
+  Printf.printf "Max buffer length >= 268,435,456: %s\n"
+    (if Unsigned.ULong.to_int attrs.max_buffer_length >= 268435456 then "yes" else "no");
   [%expect
     {|
     Device created successfully
-    Device name: Apple M*
+    Device name prefix: Apple M
     Has unified memory: true
-    Max buffer length: *
-  |}];
+    Max buffer length >= 268,435,456: yes
+    |}];
 
   (* Test getting other device properties *)
   ignore (attrs.max_threads_per_threadgroup : Size.t);
@@ -249,12 +250,12 @@ let%expect_test "ComputePipelineState creation and properties" =
   Printf.printf "Second pipeline thread width: %d\n" thread_width2;
   [%expect
     {|
-    Max total threads per threadgroup: *
-    Thread execution width: *
+    Max total threads per threadgroup: 1024
+    Thread execution width: 32
     Static threadgroup memory length: 0
     Pipeline descriptor label: Test pipeline descriptor
-    Second pipeline thread width: *
-  |}]
+    Second pipeline thread width: 32
+    |}]
 
 let%expect_test "ResourceOptions and other option types" =
   (* Test ResourceOptions combinations *)
@@ -335,7 +336,7 @@ let%expect_test "ResourceOptions and other option types" =
      else "Not Performance");
 
   (* Create library and test pipeline with options *)
-  try
+  (try
     let library = Library.on_device device ~source:kernel_source compile_opts in
     let func = Library.new_function_with_name library "simple_kernel" in
 
@@ -351,10 +352,9 @@ let%expect_test "ResourceOptions and other option types" =
     Printf.printf "Pipeline created with option2, has reflection: %b\n" (not (is_null reflection2))
   with Failure msg ->
     Printf.printf "Note: Pipeline creation test skipped due to: %s\n"
-      (if String.length msg > 50 then String.sub msg 0 50 ^ "..." else msg);
+      (if String.length msg > 50 then String.sub msg 0 50 ^ "..." else msg));
 
-    [%expect
-      {|
+  [%expect {|
     Options created successfully
     Buffer1 storage mode: Shared
     Buffer2 CPU cache mode: WriteCombined
@@ -364,4 +364,4 @@ let%expect_test "ResourceOptions and other option types" =
     Optimization level: Performance
     Pipeline created with option1, has reflection: true
     Pipeline created with option2, has reflection: true
-  |}]
+    |}]

@@ -27,9 +27,7 @@ let%expect_test "Error handling with invalid library code" =
   with Failure msg ->
     Printf.printf "Expected error occurred: %s\n" 
       (if String.length msg > 100 then String.sub msg 0 100 ^ "..." else msg);
-  [%expect {|
-    Expected error occurred: newLibraryWithSource failed: *
-  |}]
+  [%expect {| Expected error occurred: newLibraryWithSource:options:error: failed: program_source:6:7: error: unknown type name 'this_is_a_... |}]
 
 let%expect_test "Error handling with invalid function name" =
   let device = Device.create_system_default () in
@@ -55,9 +53,7 @@ let%expect_test "Error handling with invalid function name" =
     Printf.printf "ERROR: Function lookup should have failed\n";
   with Failure msg ->
     Printf.printf "Expected error occurred: %s\n" msg;
-  [%expect {|
-    Expected error occurred: Function not found: nonexistent_function
-  |}]
+  [%expect {| Expected error occurred: Failed to create object via newFunctionWithName: |}]
 
 let%expect_test "Buffer bounds checking" =
   let device = Device.create_system_default () in
@@ -116,9 +112,9 @@ let%expect_test "Resource purge states" =
      | Volatile -> "Volatile"
      | Empty -> "Empty");
   [%expect {|
-    Previous purge state: *
+    Previous purge state: NonVolatile
     New purge state after setting to Volatile: NonVolatile
-  |}]
+    |}]
 
 let%expect_test "Resource storage and cache modes" =
   let device = Device.create_system_default () in
