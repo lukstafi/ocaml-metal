@@ -1,5 +1,11 @@
 module CG = CoreGraphics
-module Objc = Runtime.Objc
+
+module Objc : sig
+  include module type of Runtime.Objc
+
+  val msg_send_suspended :
+    self:object_t -> cmd:objc_selector Ctypes.structure Ctypes_static.ptr -> typ:'a fn -> 'a
+end
 
 val nil_ptr : Objc.object_t Ctypes.ptr
 (** A null pointer suitable for Objective-C objects. *)

@@ -1,7 +1,6 @@
 open Runtime
 open Ctypes
 module CG = CoreGraphics
-module Objc = Runtime.Objc
 open Sexplib0.Sexp_conv
 
 module Block = struct
@@ -20,6 +19,13 @@ module Block = struct
   let make f ~args ~return =
     let typ = Objc_type.method_typ ~args:(Objc_type.id :: args) return in
     make' f ~typ
+end
+
+module Objc = struct
+  include Objc
+
+  let msg_send_suspended ~self ~cmd ~typ =
+    Foreign.foreign ~release_runtime_lock:true "objc_msgSend" (id @-> _SEL @-> typ) self cmd
 end
 
 type lifetime = Lifetime : 'a -> lifetime
@@ -1070,10 +1076,10 @@ module CommandBuffer = struct
       block_ptr
 
   let wait_until_scheduled (self : t) =
-    Objc.msg_send ~self:self.id ~cmd:(selector "waitUntilScheduled") ~typ:(returning void)
+    Objc.msg_send_suspended ~self:self.id ~cmd:(selector "waitUntilScheduled") ~typ:(returning void)
 
   let wait_until_completed (self : t) =
-    Objc.msg_send ~self:self.id ~cmd:(selector "waitUntilCompleted") ~typ:(returning void)
+    Objc.msg_send_suspended ~self:self.id ~cmd:(selector "waitUntilCompleted") ~typ:(returning void)
 
   module Status = struct
     type t = NotEnqueued | Enqueued | Committed | Scheduled | Completed | Error
