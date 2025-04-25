@@ -197,16 +197,16 @@ module Range = struct
   type nsrange
   type ns = nsrange structure ptr
 
-  let nsrange_t : nsrange structure typ = structure "NSRange"
-  let location_field = field nsrange_t "location" uint
-  let length_field = field nsrange_t "length" uint
+  let nsrange_t : nsrange structure typ = structure "_NSRange"
+  let location_field = field nsrange_t "location" ulong
+  let length_field = field nsrange_t "length" ulong
   let () = seal nsrange_t
 
   let from_struct (s : ns) : t =
     let s = !@s in
     {
-      location = Unsigned.UInt.to_int (getf s location_field);
-      length = Unsigned.UInt.to_int (getf s length_field);
+      location = Unsigned.ULong.to_int (getf s location_field);
+      length = Unsigned.ULong.to_int (getf s length_field);
     }
 
   let sexp_of_ns t =
@@ -214,8 +214,8 @@ module Range = struct
 
   let make ~location ~length =
     let ns_range = make nsrange_t in
-    setf ns_range location_field (Unsigned.UInt.of_int location);
-    setf ns_range length_field (Unsigned.UInt.of_int length);
+    setf ns_range location_field (Unsigned.ULong.of_int location);
+    setf ns_range length_field (Unsigned.ULong.of_int length);
     ns_range.structured
 
   let to_value t = make ~location:t.location ~length:t.length
@@ -1348,7 +1348,8 @@ module BlitCommandEncoder = struct
     Objc.msg_send ~self
       ~cmd:(selector "fillBuffer:range:value:")
       ~typ:(Objc.id @-> Range.nsrange_t @-> uchar @-> returning void)
-      buffer.id !@ns_range (Unsigned.UChar.of_int value)
+      buffer.id !@ns_range (Unsigned.UChar.of_int value);
+  ignore (Sys.opaque_identity ns_range)
 
   let synchronize_resource (self : t) resource =
     Objc.msg_send ~self ~cmd:(selector "synchronizeResource:")
