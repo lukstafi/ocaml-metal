@@ -3,10 +3,24 @@ open Ctypes
 module CG = CoreGraphics
 open Sexplib0.Sexp_conv
 
-type id = Objc.objc_object structure Ctypes_static.ptr
+module Block = struct
+  include Block
 
-let nil_ptr : id ptr = coerce (ptr void) (ptr Objc.id) null
-let nil : id = nil
+  let make' f ~typ =
+    let b = Ctypes_memory.make t in
+    setf b isa self;
+    setf b descriptor desc_ptr;
+    setf b invoke
+      (coerce (Foreign.funptr ~runtime_lock:true ~thread_registration:true typ) (ptr void) f);
+    setf b flags block_is_global;
+    allocate t b |> coerce (ptr t) (ptr void)
+
+  (** Create a global block which encapsulates the code for execution at a later time. *)
+  let make f ~args ~return =
+    let typ = Objc_type.method_typ ~args:(Objc_type.id :: args) return in
+    make' f ~typ
+end
+
 
 (* Helper to convert NSString to OCaml string *)
 let ocaml_string_from_nsstring nsstring_id =
