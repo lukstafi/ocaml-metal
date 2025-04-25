@@ -1,26 +1,24 @@
 module CG = CoreGraphics
+module Objc = Runtime.Objc
 
-type id = Runtime.Objc.objc_object Ctypes.structure Ctypes_static.ptr
-(** A generic Objective-C object pointer. See
-    {{:https://developer.apple.com/documentation/objectivec/id} id} *)
-
-val nil_ptr : id Ctypes.ptr
+val nil_ptr : Objc.object_t Ctypes.ptr
 (** A null pointer suitable for Objective-C objects. *)
 
-val nil : id
+val nil : Objc.object_t
 (** The null Objective-C object. *)
 
-val ocaml_string_from_nsstring : Runtime.Objc.objc_object Ctypes.structure Ctypes.ptr -> string
+val ocaml_string_from_nsstring : Objc.object_t -> string
 (** Converts an NSString object to an OCaml string. *)
 
-val from_nsarray : Runtime.Objc.objc_object Ctypes.structure Ctypes.ptr -> id array
-(** Converts an NSArray object containing Objective-C objects into an OCaml array of [id]. *)
+val from_nsarray : Objc.object_t -> Objc.object_t array
+(** Converts an NSArray object containing Objective-C objects into an OCaml array of
+    [Objc.object_t]. *)
 
-val get_error_description : id -> string
+val get_error_description : Objc.object_t -> string
 (** Returns the localized description of an NSError object, or "No error" / "Unknown error" if nil
     or descriptionless. *)
 
-val check_error : string -> id Ctypes.ptr -> unit
+val check_error : string -> Objc.object_t Ctypes.ptr -> unit
 (** Checks if the pointer pointed to by `err_ptr` contains a non-nil NSError. If so, raises Failure
     with the error description. *)
 
@@ -339,7 +337,7 @@ module Resource : sig
   val get_resource_options : t -> ResourceOptions.t
   (** Gets the combined resource options. *)
 
-  val get_heap : t -> id
+  val get_heap : t -> Objc.object_t
   (** Gets the heap the resource was allocated from (if any). Result type needs Heap module. *)
 
   val get_heap_offset : t -> int
@@ -439,14 +437,14 @@ module Library : sig
   val get_device : t -> Device.t
 
   val on_device : Device.t -> source:string -> CompileOptions.t -> t
-  (** Creates a library by compiling Metal Shading Language source code. Requires Device module. See
+  (** Creates a library by compiling Metal Shading Language source code. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/1433431-newlibrarywithsource}
        newLibraryWithSource:options:error:}. *)
 
   val on_device_with_data :
     Device.t -> unit Ctypes.ptr -> t (* dispatch_data_t is tricky, using unit ptr *)
-  (** Creates a library from pre-compiled data (e.g., a .metallib file loaded into memory). Requires
-      Device module. See
+  (** Creates a library from pre-compiled data (e.g., a .metallib file loaded into memory).
+      Defensively, the returned value holds on to the data pointer. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/1433377-newlibrarywithdata}
        newLibraryWithData:error:}. *)
 
@@ -501,8 +499,8 @@ module ComputePipelineState : sig
     ?options:PipelineOption.t ->
     ?reflection:bool ->
     Function.t ->
-    t * id Ctypes.ptr (* Returns PSO and optional reflection object *)
-  (** Creates a pipeline state from a function. Requires Device module. See
+    t * Objc.object_t Ctypes.ptr (* Returns PSO and optional reflection object *)
+  (** Creates a pipeline state from a function. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/1433429-newcomputepipelinestatewithfunc}
        newComputePipelineStateWithFunction:options:reflection:error:}. *)
 
@@ -511,8 +509,8 @@ module ComputePipelineState : sig
     ?options:PipelineOption.t ->
     ?reflection:bool ->
     ComputePipelineDescriptor.t ->
-    t * id Ctypes.ptr (* Returns PSO and optional reflection object *)
-  (** Creates a pipeline state from a descriptor. Requires Device module. See
+    t * Objc.object_t Ctypes.ptr (* Returns PSO and optional reflection object *)
+  (** Creates a pipeline state from a descriptor. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/1433427-newcomputepipelinestatewithdesc}
        newComputePipelineStateWithDescriptor:options:reflection:error:}. *)
 
@@ -611,8 +609,8 @@ module CommandBuffer : sig
   val get_status : t -> Status.t
   (** Gets the current status of the command buffer. *)
 
-  (* TODO: return error as a string or error type *)
-  val get_error : t -> id option
+  (* TODO: return error as an error type *)
+  val get_error : t -> string option
   (** Gets the error object if the status is Error, otherwise None. *)
 
   val get_gpu_start_time : t -> float
@@ -745,7 +743,7 @@ module IndirectCommandBuffer : sig
     max_command_count:int ->
     options:ResourceOptions.t ->
     t
-  (** Creates an indirect command buffer. Requires Device module. See
+  (** Creates an indirect command buffer. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/3088425-newindirectcommandbuffer}
        newIndirectCommandBufferWithDescriptor:maxCommandCount:options:}. *)
 
