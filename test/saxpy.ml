@@ -135,8 +135,7 @@ let%expect_test "SAXPY kernel computation test" =
   let command_buffer_error = Metal.CommandBuffer.get_error command_buffer in
   Option.iter
     (fun error ->
-      let desc = Metal.get_error_description error in
-      Printf.eprintf "Command buffer error: %s\n" desc)
+      Printf.eprintf "Command buffer error: %s\n" error)
     command_buffer_error;
 
   (* 10. Verify Results (Optional but recommended) *)
