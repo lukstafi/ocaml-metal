@@ -2,3 +2,30 @@
  (name properties)
  (modules properties)
  (libraries metal camlkit-base.runtime))
+
+(executable
+ (name basic_tests)
+ (modules basic_tests)
+ (libraries metal camlkit-base.runtime))
+
+(executable
+ (name error_tests)
+ (modules error_tests)
+ (libraries metal camlkit-base.runtime))
+
+(executable
+ (name advanced_tests)
+ (modules advanced_tests)
+ (libraries metal camlkit-base.runtime))
+
+(executable
+ (name coverage_utils)
+ (modules coverage_utils)
+ (libraries metal camlkit-base.runtime))
+
+(executable
+ (name saxpy)
+ (modules saxpy)
+ (libraries metal camlkit-base.runtime))
+ 
+ 
