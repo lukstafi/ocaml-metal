@@ -324,13 +324,13 @@ let%expect_test "ResourceOptions and other option types" =
   Printf.printf "Language version: %s\n"
     (if lang_version = CompileOptions.LanguageVersion.version_2_4 then "2.4" else "unknown");
 
-  CompileOptions.set_optimization_level compile_opts CompileOptions.OptimizationLevel.performance;
+  CompileOptions.set_optimization_level compile_opts CompileOptions.OptimizationLevel.default;
   let opt_level = CompileOptions.get_optimization_level compile_opts in
   Printf.printf "Optimization level: %s\n"
     (if
        Unsigned.ULong.compare
          (CompileOptions.OptimizationLevel.to_ulong opt_level)
-         (CompileOptions.OptimizationLevel.to_ulong CompileOptions.OptimizationLevel.performance)
+         (CompileOptions.OptimizationLevel.to_ulong CompileOptions.OptimizationLevel.default)
        = 0
      then "Performance"
      else "Not Performance");
