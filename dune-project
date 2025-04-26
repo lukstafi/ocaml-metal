@@ -1,4 +1,4 @@
-(lang dune 3.17)
+(lang dune 3.18)
 
 (name metal)
 
@@ -12,6 +12,8 @@
 (authors "Lukasz Stafiniak <lukstafi@gmail.com>")
 
 (maintainers "Lukasz Stafiniak <lukstafi@gmail.com>")
+
+(maintenance_intent "(latest)")
 
 (license MIT)
 

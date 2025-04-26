@@ -14,7 +14,7 @@ doc: "https://github.com/lukstafi/ocaml-metal/blob/main/README.md"
 bug-reports: "https://github.com/lukstafi/ocaml-metal/issues"
 depends: [
   "ocaml" {>= "4.13"}
-  "dune" {>= "3.17"}
+  "dune" {>= "3.18"}
   "ctypes" {>= "0.14.0"}
   "ctypes-foreign"
   "sexplib0"
@@ -38,3 +38,5 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/lukstafi/ocaml-metal.git"
+x-maintenance-intent: ["(latest)"]
+available: os = "macos"
