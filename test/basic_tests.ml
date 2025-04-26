@@ -328,9 +328,9 @@ let%expect_test "ResourceOptions and other option types" =
   let opt_level = CompileOptions.get_optimization_level compile_opts in
   Printf.printf "Optimization level: %s\n"
     (if
-       Unsigned.UInt.compare
-         (CompileOptions.OptimizationLevel.to_uint opt_level)
-         (CompileOptions.OptimizationLevel.to_uint CompileOptions.OptimizationLevel.performance)
+       Unsigned.ULong.compare
+         (CompileOptions.OptimizationLevel.to_ulong opt_level)
+         (CompileOptions.OptimizationLevel.to_ulong CompileOptions.OptimizationLevel.performance)
        = 0
      then "Performance"
      else "Not Performance");

@@ -90,7 +90,7 @@ module Device : sig
   module ArgumentBuffersTier : sig
     type t = Tier1 | Tier2 [@@deriving sexp_of]
 
-    val to_uint : t -> Unsigned.uint
+    val to_ulong : t -> Unsigned.ulong
   end
 
   type attributes = {
@@ -121,9 +121,6 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlresourceoptions} MTLResourceOptions}. *)
 module ResourceOptions : sig
   type t [@@deriving sexp_of]
-
-  val ullong : Unsigned.ullong Ctypes_static.typ
-
   (* Storage Modes (MTLStorageMode) *)
   val storage_mode_shared : t
   (** Shared between CPU and GPU. See
@@ -211,7 +208,7 @@ module CompileOptions : sig
   (** Specifies the version of the Metal Shading Language to use. See
       {{:https://developer.apple.com/documentation/metal/mtllanguageversion} MTLLanguageVersion}. *)
   module LanguageVersion : sig
-    type t = ResourceOptions.t [@@deriving sexp_of] (* Uses ullong *)
+    type t [@@deriving sexp_of]
 
     val version_1_0 : t
     val version_1_1 : t
@@ -237,7 +234,7 @@ module CompileOptions : sig
     val dynamic : t
     (** A dynamic library. *)
 
-    val to_uint : t -> Unsigned.uint
+    val to_ulong : t -> Unsigned.ulong
   end
 
   (** Specifies the optimization level for the compiler. See
@@ -255,7 +252,7 @@ module CompileOptions : sig
     val performance : t
     (** Optimize for performance. *)
 
-    val to_uint : t -> Unsigned.uint
+    val to_ulong : t -> Unsigned.ulong
   end
 
   val set_fast_math_enabled : t -> bool -> unit
@@ -314,7 +311,8 @@ module Resource : sig
   module CPUCacheMode : sig
     type t = DefaultCache | WriteCombined [@@deriving sexp_of]
 
-    val to_uint : t -> Unsigned.uint
+    val to_ulong : t -> Unsigned.ulong
+    val from_ulong : Unsigned.ulong -> t
   end
 
   val get_cpu_cache_mode : t -> CPUCacheMode.t
@@ -324,7 +322,8 @@ module Resource : sig
   module StorageMode : sig
     type t = Shared | Managed | Private | Memoryless [@@deriving sexp_of]
 
-    val to_uint : t -> Unsigned.uint
+     val to_ulong : t -> Unsigned.ulong
+    val from_ulong : Unsigned.ulong -> t
   end
 
   val get_storage_mode : t -> StorageMode.t
@@ -335,7 +334,8 @@ module Resource : sig
   module HazardTrackingMode : sig
     type t = Default | Untracked | Tracked [@@deriving sexp_of]
 
-    val to_uint : t -> Unsigned.uint
+    val to_ulong : t -> Unsigned.ulong
+    val from_ulong : Unsigned.ulong -> t
   end
 
   val get_hazard_tracking_mode : t -> HazardTrackingMode.t
@@ -411,7 +411,8 @@ module FunctionType : sig
   type t = Vertex | Fragment | Kernel | Visible | Intersection | Mesh | Object
   [@@deriving sexp_of]
 
-  val to_uint : t -> Unsigned.uint
+  val to_ulong : t -> Unsigned.ulong
+  val from_ulong : Unsigned.ulong -> t
 end
 
 (** Represents a single, named function (shader or kernel) within a Metal library. See
@@ -610,6 +611,9 @@ module CommandBuffer : sig
   module Status : sig
     type t = NotEnqueued | Enqueued | Committed | Scheduled | Completed | Error
     [@@deriving sexp_of]
+
+    val from_ulong : Unsigned.ulong -> t
+    val to_ulong : t -> Unsigned.ulong
   end
 
   val get_status : t -> Status.t
@@ -778,7 +782,7 @@ module ComputeCommandEncoder : sig
   module DispatchType : sig
     type t = Serial | Concurrent [@@deriving sexp_of]
 
-    val to_uint : t -> Unsigned.uint
+    val to_ulong : t -> Unsigned.ulong
   end
 
   val on_buffer : CommandBuffer.t -> t

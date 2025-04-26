@@ -251,8 +251,8 @@ module Device = struct
       else if Signed.LLong.equal i (Signed.LLong.of_int 1) then Tier2
       else invalid_arg ("Unknown ArgumentBuffersTier: " ^ Signed.LLong.to_string i)
 
-    let to_uint (t : t) : Unsigned.uint =
-      match t with Tier1 -> Unsigned.UInt.of_int 0 | Tier2 -> Unsigned.UInt.of_int 1
+    let to_ulong (t : t) : Unsigned.ulong =
+      match t with Tier1 -> Unsigned.ULong.zero | Tier2 -> Unsigned.ULong.one
   end
 
   open Sexplib0.Sexp_conv (* Open standard converters for @@deriving sexp_of *)
@@ -343,28 +343,27 @@ end
 (* === Resource Configuration === *)
 
 module ResourceOptions = struct
-  type t = Unsigned.ULLong.t
+  type t = Unsigned.ULong.t
 
-  let sexp_of_t t = Sexplib0.Sexp.Atom (Unsigned.ULLong.to_string t)
-  let ullong = ullong
+  let sexp_of_t t = Sexplib0.Sexp.Atom (Unsigned.ULong.to_string t)
 
   (* Storage Modes (MTLStorageMode) *)
-  let storage_mode_shared = Unsigned.ULLong.of_int 0
-  let storage_mode_managed = Unsigned.ULLong.of_int 16 (* 1 << 4 *)
-  let storage_mode_private = Unsigned.ULLong.of_int 32 (* 2 << 4 *)
-  let storage_mode_memoryless = Unsigned.ULLong.of_int 48 (* 3 << 4 *)
+  let storage_mode_shared = Unsigned.ULong.of_int 0
+  let storage_mode_managed = Unsigned.ULong.of_int 16 (* 1 << 4 *)
+  let storage_mode_private = Unsigned.ULong.of_int 32 (* 2 << 4 *)
+  let storage_mode_memoryless = Unsigned.ULong.of_int 48 (* 3 << 4 *)
 
   (* CPU Cache Modes (MTLCPUCacheMode) *)
-  let cpu_cache_mode_default_cache = Unsigned.ULLong.of_int 0
-  let cpu_cache_mode_write_combined = Unsigned.ULLong.of_int 1
+  let cpu_cache_mode_default_cache = Unsigned.ULong.of_int 0
+  let cpu_cache_mode_write_combined = Unsigned.ULong.of_int 1
 
   (* Hazard Tracking Modes (MTLHazardTrackingMode) *)
-  let hazard_tracking_mode_default = Unsigned.ULLong.of_int 0 (* 0 << 8 *)
-  let hazard_tracking_mode_untracked = Unsigned.ULLong.of_int 256 (* 1 << 8 *)
-  let hazard_tracking_mode_tracked = Unsigned.ULLong.of_int 512 (* 2 << 8 *)
+  let hazard_tracking_mode_default = Unsigned.ULong.of_int 0 (* 0 << 8 *)
+  let hazard_tracking_mode_untracked = Unsigned.ULong.of_int 256 (* 1 << 8 *)
+  let hazard_tracking_mode_tracked = Unsigned.ULong.of_int 512 (* 2 << 8 *)
 
   (* Combine options using Bitmask *)
-  let ( + ) = Unsigned.ULLong.logor
+  let ( + ) = Unsigned.ULong.logor
 
   (* Helper function to create options *)
   let make ?(storage_mode = storage_mode_shared) ?(cpu_cache_mode = cpu_cache_mode_default_cache)
@@ -373,14 +372,14 @@ module ResourceOptions = struct
 end
 
 module PipelineOption = struct
-  type t = Unsigned.ULLong.t
+  type t = Unsigned.ULong.t
 
-  let sexp_of_t t = Sexplib0.Sexp.Atom (Unsigned.ULLong.to_string t)
-  let none = Unsigned.ULLong.of_int 0
-  let argument_info = Unsigned.ULLong.of_int 1 (* 1 << 0 *)
-  let buffer_type_info = Unsigned.ULLong.of_int 2 (* 1 << 1 *)
-  let fail_on_binary_archive_miss = Unsigned.ULLong.of_int 4 (* 1 << 2 *)
-  let ( + ) = Unsigned.ULLong.logor
+  let sexp_of_t t = Sexplib0.Sexp.Atom (Unsigned.ULong.to_string t)
+  let none = Unsigned.ULong.of_int 0
+  let argument_info = Unsigned.ULong.of_int 1 (* 1 << 0 *)
+  let buffer_type_info = Unsigned.ULong.of_int 2 (* 1 << 1 *)
+  let fail_on_binary_archive_miss = Unsigned.ULong.of_int 4 (* 1 << 2 *)
+  let ( + ) = Unsigned.ULong.logor
 end
 
 module CompileOptions = struct
@@ -431,10 +430,10 @@ module CompileOptions = struct
       else if Unsigned.ULLong.equal v dynamic then Atom "Dynamic"
       else Atom ("Unknown_LibraryType_" ^ Unsigned.ULLong.to_string v)
 
-    let to_uint (t : t) : Unsigned.uint =
+    let to_ulong (t : t) : Unsigned.ulong =
       match Unsigned.ULLong.to_int t with
-      | 0 -> Unsigned.UInt.of_int 0
-      | 1 -> Unsigned.UInt.of_int 1
+      | 0 -> Unsigned.ULong.zero
+      | 1 -> Unsigned.ULong.one
       | _ -> invalid_arg "Unknown LibraryType"
   end
 
@@ -452,11 +451,11 @@ module CompileOptions = struct
       else if Unsigned.ULLong.equal v performance then Atom "Performance"
       else Atom ("Unknown_OptimizationLevel_" ^ Unsigned.ULLong.to_string v)
 
-    let to_uint (t : t) : Unsigned.uint =
+    let to_ulong (t : t) : Unsigned.ulong =
       match Unsigned.ULLong.to_int t with
-      | 0 -> Unsigned.UInt.of_int 0
-      | 1 -> Unsigned.UInt.of_int 1
-      | 2 -> Unsigned.UInt.of_int 2
+      | 0 -> Unsigned.ULong.zero
+      | 1 -> Unsigned.ULong.one
+      | 2 -> Unsigned.ULong.of_int 2
       | _ -> invalid_arg "Unknown OptimizationLevel"
   end
 
@@ -550,73 +549,73 @@ module Resource = struct
   end
 
   let set_purgeable_state (self : t) state =
-    let prev_state_int =
+    let prev_state_ulong =
       Objc.msg_send ~self ~cmd:(selector "setPurgeableState:")
-        ~typ:(uint @-> returning uint)
-        (Unsigned.UInt.of_int (PurgeableState.to_int state))
+        ~typ:(ulong @-> returning ulong)
+        (Unsigned.ULong.of_int (PurgeableState.to_int state))
     in
-    PurgeableState.from_int (Unsigned.UInt.to_int prev_state_int)
+    PurgeableState.from_int (Unsigned.ULong.to_int prev_state_ulong)
 
   module CPUCacheMode = struct
     type t = DefaultCache | WriteCombined [@@deriving sexp_of]
 
-    let from_uint i =
-      match Unsigned.UInt.to_int i with
+    let from_ulong i =
+      match Unsigned.ULong.to_int i with
       | 0 -> DefaultCache
       | 1 -> WriteCombined
       | _ -> invalid_arg "Unknown CPUCacheMode"
 
-    let to_uint = function DefaultCache -> Unsigned.UInt.zero | WriteCombined -> Unsigned.UInt.one
+    let to_ulong = function DefaultCache -> Unsigned.ULong.zero | WriteCombined -> Unsigned.ULong.one
   end
 
   module StorageMode = struct
     type t = Shared | Managed | Private | Memoryless [@@deriving sexp_of]
 
-    let from_uint i =
-      match Unsigned.UInt.to_int i with
+    let from_ulong i =
+      match Unsigned.ULong.to_int i with
       | 0 -> Shared
       | 1 -> Managed (* macOS only *)
       | 2 -> Private
       | 3 -> Memoryless
       | _ -> invalid_arg "Unknown StorageMode"
 
-    let to_uint = function
-      | Shared -> Unsigned.UInt.zero
-      | Managed -> Unsigned.UInt.one
-      | Private -> Unsigned.UInt.of_int 2
-      | Memoryless -> Unsigned.UInt.of_int 3
+    let to_ulong = function
+      | Shared -> Unsigned.ULong.zero
+      | Managed -> Unsigned.ULong.one
+      | Private -> Unsigned.ULong.of_int 2
+      | Memoryless -> Unsigned.ULong.of_int 3
   end
 
   module HazardTrackingMode = struct
     type t = Default | Untracked | Tracked [@@deriving sexp_of]
 
-    let from_uint i =
-      match Unsigned.UInt.to_int i with
+    let from_ulong i =
+      match Unsigned.ULong.to_int i with
       | 0 -> Default
       | 1 -> Untracked
       | 2 -> Tracked
       | _ -> invalid_arg "Unknown HazardTrackingMode"
 
-    let to_uint = function
-      | Default -> Unsigned.UInt.zero
-      | Untracked -> Unsigned.UInt.one
-      | Tracked -> Unsigned.UInt.of_int 2
+    let to_ulong = function
+      | Default -> Unsigned.ULong.zero
+      | Untracked -> Unsigned.ULong.one
+      | Tracked -> Unsigned.ULong.of_int 2
   end
 
   let get_cpu_cache_mode (self : t) : CPUCacheMode.t =
-    let mode_val = Objc.msg_send ~self ~cmd:(selector "cpuCacheMode") ~typ:(returning uint) in
-    CPUCacheMode.from_uint mode_val
+    let mode_val = Objc.msg_send ~self ~cmd:(selector "cpuCacheMode") ~typ:(returning ulong) in
+    CPUCacheMode.from_ulong mode_val
 
   let get_storage_mode (self : t) : StorageMode.t =
-    let mode_val = Objc.msg_send ~self ~cmd:(selector "storageMode") ~typ:(returning uint) in
-    StorageMode.from_uint mode_val
+    let mode_val = Objc.msg_send ~self ~cmd:(selector "storageMode") ~typ:(returning ulong) in
+    StorageMode.from_ulong mode_val
 
   let get_hazard_tracking_mode (self : t) : HazardTrackingMode.t =
-    let mode_val = Objc.msg_send ~self ~cmd:(selector "hazardTrackingMode") ~typ:(returning uint) in
-    HazardTrackingMode.from_uint mode_val
+    let mode_val = Objc.msg_send ~self ~cmd:(selector "hazardTrackingMode") ~typ:(returning ulong) in
+    HazardTrackingMode.from_ulong mode_val
 
   let get_resource_options (self : t) : ResourceOptions.t =
-    Objc.msg_send ~self ~cmd:(selector "resourceOptions") ~typ:(returning ullong)
+    Objc.msg_send ~self ~cmd:(selector "resourceOptions") ~typ:(returning ulong)
 
   let get_heap (self : t) =
     (* Returns id, needs Heap module *)
@@ -675,7 +674,7 @@ module Buffer = struct
     let id =
       Objc.msg_send ~self:device
         ~cmd:(selector select)
-        ~typ:(ulong @-> ullong @-> returning Objc.id)
+        ~typ:(ulong @-> ulong @-> returning Objc.id)
         (Unsigned.ULong.of_int length) options
     in
     { id = gc ~select id; lifetime = Lifetime () }
@@ -685,7 +684,7 @@ module Buffer = struct
     let id =
       Objc.msg_send ~self:device
         ~cmd:(selector select)
-        ~typ:(ptr void @-> ulong @-> ullong @-> returning Objc.id)
+        ~typ:(ptr void @-> ulong @-> ulong @-> returning Objc.id)
         bytes (Unsigned.ULong.of_int length) options
     in
     { id = gc ~select id; lifetime = Lifetime () }
@@ -702,7 +701,7 @@ module Buffer = struct
     let id =
       Objc.msg_send ~self:device
         ~cmd:(selector select)
-        ~typ:(ptr void @-> ulong @-> ullong @-> ptr void @-> returning Objc.id)
+        ~typ:(ptr void @-> ulong @-> ulong @-> ptr void @-> returning Objc.id)
         bytes (Unsigned.ULong.of_int length) options dealloc_block
     in
     { id = gc ~select id; lifetime = Lifetime callback }
@@ -744,8 +743,8 @@ module FunctionType = struct
   type t = Vertex | Fragment | Kernel | Visible | Intersection | Mesh | Object
   [@@deriving sexp_of]
 
-  let from_uint i =
-    match Unsigned.UInt.to_int i with
+  let from_ulong i =
+    match Unsigned.ULong.to_int i with
     | 1 -> Vertex
     | 2 -> Fragment
     | 3 -> Kernel
@@ -755,14 +754,14 @@ module FunctionType = struct
     | 8 -> Object
     | _ -> invalid_arg "Unknown FunctionType"
 
-  let to_uint = function
-    | Vertex -> Unsigned.UInt.one
-    | Fragment -> Unsigned.UInt.of_int 2
-    | Kernel -> Unsigned.UInt.of_int 3
-    | Visible -> Unsigned.UInt.of_int 5
-    | Intersection -> Unsigned.UInt.of_int 6
-    | Mesh -> Unsigned.UInt.of_int 7
-    | Object -> Unsigned.UInt.of_int 8
+  let to_ulong = function
+    | Vertex -> Unsigned.ULong.one
+    | Fragment -> Unsigned.ULong.of_int 2
+    | Kernel -> Unsigned.ULong.of_int 3
+    | Visible -> Unsigned.ULong.of_int 5
+    | Intersection -> Unsigned.ULong.of_int 6
+    | Mesh -> Unsigned.ULong.of_int 7
+    | Object -> Unsigned.ULong.of_int 8
 end
 
 module Function = struct
@@ -773,8 +772,8 @@ module Function = struct
   let get_device (self : t) = Resource.get_device self
 
   let get_function_type (self : t) : FunctionType.t =
-    let ft = Objc.msg_send ~self ~cmd:(selector "functionType") ~typ:(returning uint) in
-    FunctionType.from_uint ft
+    let ft = Objc.msg_send ~self ~cmd:(selector "functionType") ~typ:(returning ulong) in
+    FunctionType.from_ulong ft
 
   (* Skipping patchType, patchControlPointCount, vertexAttributes, stageInputAttributes as they are
      graphics/tessellation related *)
@@ -836,7 +835,7 @@ module Library = struct
     let select = "newFunctionWithName:" in
     let ns_name = new_string name in
     let func =
-      Objc.msg_send ~self:self.id 
+      Objc.msg_send ~self:self.id
         ~cmd:(selector select)
         ~typ:(Objc.id @-> returning Objc.id)
         ns_name
@@ -925,7 +924,7 @@ module ComputePipelineState = struct
     let pso =
       Objc.msg_send ~self:device
         ~cmd:(selector select)
-        ~typ:(Objc.id @-> ullong @-> ptr Objc.id @-> ptr Objc.id @-> returning Objc.id)
+        ~typ:(Objc.id @-> ulong @-> ptr Objc.id @-> ptr Objc.id @-> returning Objc.id)
         func options maybe_reflection_ptr err_ptr
     in
     check_error select err_ptr;
@@ -939,7 +938,7 @@ module ComputePipelineState = struct
     let pso =
       Objc.msg_send ~self:device
         ~cmd:(selector select)
-        ~typ:(Objc.id @-> ullong @-> ptr Objc.id @-> ptr Objc.id @-> returning Objc.id)
+        ~typ:(Objc.id @-> ulong @-> ptr Objc.id @-> ptr Objc.id @-> returning Objc.id)
         desc options maybe_reflection_ptr err_ptr
     in
     check_error select err_ptr;
@@ -1085,8 +1084,8 @@ module CommandBuffer = struct
     type t = NotEnqueued | Enqueued | Committed | Scheduled | Completed | Error
     [@@deriving sexp_of]
 
-    let from_uint i =
-      match Unsigned.UInt.to_int i with
+    let from_ulong i =
+      match Unsigned.ULong.to_int i with
       | 0 -> NotEnqueued
       | 1 -> Enqueued
       | 2 -> Committed
@@ -1094,11 +1093,19 @@ module CommandBuffer = struct
       | 4 -> Completed
       | 5 -> Error
       | _ -> invalid_arg "Unknown CommandBufferStatus"
+
+    let to_ulong = function
+      | NotEnqueued -> Unsigned.ULong.zero
+      | Enqueued -> Unsigned.ULong.one
+      | Committed -> Unsigned.ULong.of_int 2
+      | Scheduled -> Unsigned.ULong.of_int 3
+      | Completed -> Unsigned.ULong.of_int 4
+      | Error -> Unsigned.ULong.of_int 5
   end
 
   let get_status (self : t) : Status.t =
-    let status_val = Objc.msg_send ~self:self.id ~cmd:(selector "status") ~typ:(returning uint) in
-    Status.from_uint status_val
+    let status_val = Objc.msg_send ~self:self.id ~cmd:(selector "status") ~typ:(returning ulong) in
+    Status.from_ulong status_val
 
   let get_error (self : t) : string option =
     (* NSError *)
@@ -1184,12 +1191,12 @@ module CommandEncoder = struct
 end
 
 module ResourceUsage = struct
-  type t = Unsigned.ULLong.t (* MTLResourceUsage is NSUInteger *)
+  type t = Unsigned.ULong.t (* MTLResourceUsage is NSUInteger *)
 
-  let read = Unsigned.ULLong.of_int 1 (* 1 << 0 *)
-  let write = Unsigned.ULLong.of_int 2 (* 1 << 1 *)
-  let ( + ) = Unsigned.ULLong.logor
-  let sexp_of_t t = Sexplib0.Sexp.Atom (Unsigned.ULLong.to_string t)
+  let read = Unsigned.ULong.of_int 1 (* 1 << 0 *)
+  let write = Unsigned.ULong.of_int 2 (* 1 << 1 *)
+  let ( + ) = Unsigned.ULong.logor
+  let sexp_of_t t = Sexplib0.Sexp.Atom (Unsigned.ULong.to_string t)
 end
 
 module ComputeCommandEncoder = struct
@@ -1216,7 +1223,7 @@ module ComputeCommandEncoder = struct
   module DispatchType = struct
     type t = Serial | Concurrent [@@deriving sexp_of]
 
-    let to_uint = function Serial -> Unsigned.UInt.zero | Concurrent -> Unsigned.UInt.one
+    let to_ulong = function Serial -> Unsigned.ULong.zero | Concurrent -> Unsigned.ULong.one
   end
 
   let on_buffer_with_dispatch_type (self : CommandBuffer.t) dispatch_type : t =
@@ -1225,8 +1232,8 @@ module ComputeCommandEncoder = struct
     let encoder =
       Objc.msg_send ~self:self.id
         ~cmd:(selector select)
-        ~typ:(uint @-> returning Objc.id)
-        (DispatchType.to_uint dispatch_type)
+        ~typ:(ulong @-> returning Objc.id)
+        (DispatchType.to_ulong dispatch_type)
     in
     gc ~select encoder
 
@@ -1283,7 +1290,7 @@ module ComputeCommandEncoder = struct
 
   let use_resource (self : t) resource usage =
     Objc.msg_send ~self ~cmd:(selector "useResource:usage:")
-      ~typ:(Objc.id @-> ullong @-> returning void)
+      ~typ:(Objc.id @-> ulong @-> returning void)
       resource usage
 
   let use_resources (self : t) resources usage =
@@ -1291,7 +1298,7 @@ module ComputeCommandEncoder = struct
     let ns_array = to_nsarray ~count resources in
     Objc.msg_send ~self
       ~cmd:(selector "useResources:count:usage:")
-      ~typ:(Objc.id @-> ulong @-> ullong @-> returning void)
+      ~typ:(Objc.id @-> ulong @-> ulong @-> returning void)
       ns_array (Unsigned.ULong.of_int count) usage
 
   let execute_commands_in_buffer (self : t) buffer range =
@@ -1318,11 +1325,11 @@ module BlitCommandEncoder = struct
     Sexplib0.Sexp.message "<BlitCommandEncoder>"
       [ ("label", Atom label); ("device", Device.sexp_of_t device) ]
 
-  let on_buffer (self : CommandBuffer.t) : t =
+  let on_buffer (cmdbuf : CommandBuffer.t) : t = (* Correct argument type to CommandBuffer.t *) 
     (* Returns BlitCommandEncoder.t *)
     let select = "blitCommandEncoder" in
     let encoder =
-      Objc.msg_send ~self:self.id ~cmd:(selector select) ~typ:(returning Objc.id)
+      Objc.msg_send ~self:cmdbuf.id ~cmd:(selector select) ~typ:(returning Objc.id)
     in
     gc ~select encoder
 
@@ -1466,16 +1473,16 @@ end
 (* === Indirect Command Buffers === *)
 
 module IndirectCommandType = struct
-  type t = Unsigned.ULLong.t (* MTLIndirectCommandType is NSUInteger *)
+  type t = Unsigned.ULong.t (* MTLIndirectCommandType is NSUInteger *)
 
-  let draw = Unsigned.ULLong.of_int 1 (* 1 << 0 *)
-  let draw_indexed = Unsigned.ULLong.of_int 2 (* 1 << 1 *)
-  let draw_patches = Unsigned.ULLong.of_int 4 (* 1 << 2, macOS only *)
-  let draw_indexed_patches = Unsigned.ULLong.of_int 8 (* 1 << 3, macOS only *)
-  let concurrent_dispatch = Unsigned.ULLong.of_int 32 (* 1 << 5 *)
-  let concurrent_dispatch_threads = Unsigned.ULLong.of_int 64 (* 1 << 6 *)
-  let ( + ) = Unsigned.ULLong.logor
-  let sexp_of_t t = Sexplib0.Sexp.Atom (Unsigned.ULLong.to_string t)
+  let draw = Unsigned.ULong.of_int 1 (* 1 << 0 *)
+  let draw_indexed = Unsigned.ULong.of_int 2 (* 1 << 1 *)
+  let draw_patches = Unsigned.ULong.of_int 4 (* 1 << 2, macOS only *)
+  let draw_indexed_patches = Unsigned.ULong.of_int 8 (* 1 << 3, macOS only *)
+  let concurrent_dispatch = Unsigned.ULong.of_int 32 (* 1 << 5 *)
+  let concurrent_dispatch_threads = Unsigned.ULong.of_int 64 (* 1 << 6 *)
+  let ( + ) = Unsigned.ULong.logor
+  let sexp_of_t t = Sexplib0.Sexp.Atom (Unsigned.ULong.to_string t)
 end
 
 module IndirectCommandBufferDescriptor = struct
@@ -1484,10 +1491,10 @@ module IndirectCommandBufferDescriptor = struct
   let create () = new_gc ~class_name:"MTLIndirectCommandBufferDescriptor"
 
   let set_command_types (self : t) types =
-    Objc.msg_send ~self ~cmd:(selector "setCommandTypes:") ~typ:(ullong @-> returning void) types
+    Objc.msg_send ~self ~cmd:(selector "setCommandTypes:") ~typ:(ulong @-> returning void) types
 
   let get_command_types (self : t) : IndirectCommandType.t =
-    Objc.msg_send ~self ~cmd:(selector "commandTypes") ~typ:(returning ullong)
+    Objc.msg_send ~self ~cmd:(selector "commandTypes") ~typ:(returning ulong)
 
   let set_inherit_pipeline_state (self : t) inherit_pso =
     Objc.msg_send ~self
@@ -1573,7 +1580,7 @@ module IndirectCommandBuffer = struct
     let icb =
       Objc.msg_send ~self:device
         ~cmd:(selector select)
-        ~typ:(Objc.id @-> ulong @-> ullong @-> returning Objc.id)
+        ~typ:(Objc.id @-> ulong @-> ulong @-> returning Objc.id)
         descriptor
         (Unsigned.ULong.of_int max_command_count)
         options
