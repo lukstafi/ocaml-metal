@@ -205,8 +205,13 @@ let _Indirect_command_buffer_basics =
   let library = Library.on_device device ~source:kernel_source compile_options in
   let func = Library.new_function_with_name library "double_values" in
 
+  ComputePipelineDescriptor.set_compute_function pipeline_desc func;
+  Format.printf "Pipeline descriptor: %a\n%!" Sexplib0.Sexp.pp_hum (ComputePipelineDescriptor.sexp_of_t pipeline_desc);
+
   (* Create compute pipeline state *)
-  let pipeline_state, _ = ComputePipelineState.on_device_with_function device func in
+  let pipeline_state, _ =
+    ComputePipelineState.on_device_with_descriptor device pipeline_desc
+  in
 
   let supports_icb = ComputePipelineState.get_support_indirect_command_buffers pipeline_state in
   Printf.printf "Pipeline supports indirect command buffers: %b\n" supports_icb;

@@ -241,9 +241,14 @@ let%expect_test "Indirect command buffer basics" =
   let compile_options = CompileOptions.init () in
   let library = Library.on_device device ~source:kernel_source compile_options in
   let func = Library.new_function_with_name library "double_values" in
+  ComputePipelineDescriptor.set_compute_function pipeline_desc func;
+  (* Log pipeline descriptor via sexp conversion *)
+  Format.printf "Pipeline descriptor: %a\n%!" Sexplib0.Sexp.pp_hum (ComputePipelineDescriptor.sexp_of_t pipeline_desc);
 
   (* Create compute pipeline state *)
-  let pipeline_state, _ = ComputePipelineState.on_device_with_function device func in
+  let pipeline_state, _ =
+    ComputePipelineState.on_device_with_descriptor device pipeline_desc
+  in
 
   let supports_icb = ComputePipelineState.get_support_indirect_command_buffers pipeline_state in
   Printf.printf "Pipeline supports indirect command buffers: %b\n" supports_icb;
@@ -309,10 +314,11 @@ let%expect_test "Indirect command buffer basics" =
     done);
   [%expect
     {|
-    Pipeline supports indirect command buffers: *
-    (* if supports_icb is true: *)
+    Pipeline descriptor: ((label "") (function (name double_values type Kernel))
+                          (support_icb true))
+    Pipeline supports indirect command buffers: true
     buffer[0] = 2
     buffer[1] = 4
     buffer[2] = 6
     buffer[3] = 8
-  |}]
+    |}]
