@@ -438,13 +438,11 @@ module CompileOptions = struct
 
     let default = Unsigned.ULong.of_int 0
     let size = Unsigned.ULong.of_int 1
-    let performance = Unsigned.ULong.of_int 2
 
     let sexp_of_t v =
       let open Sexplib0.Sexp in
       if Unsigned.ULong.equal v default then Atom "Default"
       else if Unsigned.ULong.equal v size then Atom "Size"
-      else if Unsigned.ULong.equal v performance then Atom "Performance"
       else Atom ("Unknown_OptimizationLevel_" ^ Unsigned.ULong.to_string v)
 
     let to_ulong (t : t) : Unsigned.ulong = t

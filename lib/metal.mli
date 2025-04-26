@@ -244,13 +244,10 @@ module CompileOptions : sig
     type t [@@deriving sexp_of] (* Uses ullong *)
 
     val default : t
-    (** Default optimization level. *)
+    (** Default optimization level optimized for performance. **)
 
     val size : t
     (** Optimize for size. *)
-
-    val performance : t
-    (** Optimize for performance. *)
 
     val to_ulong : t -> Unsigned.ulong
   end
