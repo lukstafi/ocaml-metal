@@ -388,75 +388,66 @@ module CompileOptions = struct
   let init () = new_gc ~class_name:"MTLCompileOptions"
 
   module LanguageVersion = struct
-    type t = Unsigned.ULLong.t
+    type t = Unsigned.ULong.t
 
-    let version_1_0 = Unsigned.ULLong.of_int 0 (* Deprecated *)
-    let version_1_1 = Unsigned.ULLong.of_int 65537
-    let version_1_2 = Unsigned.ULLong.of_int 65538
-    let version_2_0 = Unsigned.ULLong.of_int 131072
-    let version_2_1 = Unsigned.ULLong.of_int 131073
-    let version_2_2 = Unsigned.ULLong.of_int 131074
-    let version_2_3 = Unsigned.ULLong.of_int 131075
-    let version_2_4 = Unsigned.ULLong.of_int 131076
-    let version_3_0 = Unsigned.ULLong.of_int 196608
-    let version_3_1 = Unsigned.ULLong.of_int 196609
-    let version_3_2 = Unsigned.ULLong.of_int 196610 (* macOS 15.0, iOS 18.0 *)
+    let version_1_0 = Unsigned.ULong.of_int 0 (* Deprecated *)
+    let version_1_1 = Unsigned.ULong.of_int 65537
+    let version_1_2 = Unsigned.ULong.of_int 65538
+    let version_2_0 = Unsigned.ULong.of_int 131072
+    let version_2_1 = Unsigned.ULong.of_int 131073
+    let version_2_2 = Unsigned.ULong.of_int 131074
+    let version_2_3 = Unsigned.ULong.of_int 131075
+    let version_2_4 = Unsigned.ULong.of_int 131076
+    let version_3_0 = Unsigned.ULong.of_int 196608
+    let version_3_1 = Unsigned.ULong.of_int 196609
+    let version_3_2 = Unsigned.ULong.of_int 196610 (* macOS 15.0, iOS 18.0 *)
 
     let sexp_of_t v =
       let open Sexplib0.Sexp in
-      if Unsigned.ULLong.equal v version_1_0 then Atom "Version_1_0"
-      else if Unsigned.ULLong.equal v version_1_1 then Atom "Version_1_1"
-      else if Unsigned.ULLong.equal v version_1_2 then Atom "Version_1_2"
-      else if Unsigned.ULLong.equal v version_2_0 then Atom "Version_2_0"
-      else if Unsigned.ULLong.equal v version_2_1 then Atom "Version_2_1"
-      else if Unsigned.ULLong.equal v version_2_2 then Atom "Version_2_2"
-      else if Unsigned.ULLong.equal v version_2_3 then Atom "Version_2_3"
-      else if Unsigned.ULLong.equal v version_2_4 then Atom "Version_2_4"
-      else if Unsigned.ULLong.equal v version_3_0 then Atom "Version_3_0"
-      else if Unsigned.ULLong.equal v version_3_1 then Atom "Version_3_1"
-      else if Unsigned.ULLong.equal v version_3_2 then Atom "Version_3_2"
-      else Atom ("Unknown_Version_" ^ Unsigned.ULLong.to_string v)
+      if Unsigned.ULong.equal v version_1_0 then Atom "Version_1_0"
+      else if Unsigned.ULong.equal v version_1_1 then Atom "Version_1_1"
+      else if Unsigned.ULong.equal v version_1_2 then Atom "Version_1_2"
+      else if Unsigned.ULong.equal v version_2_0 then Atom "Version_2_0"
+      else if Unsigned.ULong.equal v version_2_1 then Atom "Version_2_1"
+      else if Unsigned.ULong.equal v version_2_2 then Atom "Version_2_2"
+      else if Unsigned.ULong.equal v version_2_3 then Atom "Version_2_3"
+      else if Unsigned.ULong.equal v version_2_4 then Atom "Version_2_4"
+      else if Unsigned.ULong.equal v version_3_0 then Atom "Version_3_0"
+      else if Unsigned.ULong.equal v version_3_1 then Atom "Version_3_1"
+      else if Unsigned.ULong.equal v version_3_2 then Atom "Version_3_2"
+      else Atom ("Unknown_Version_" ^ Unsigned.ULong.to_string v)
   end
 
   module LibraryType = struct
-    type t = Unsigned.ULLong.t
+    type t = Unsigned.ULong.t
 
-    let executable = Unsigned.ULLong.of_int 0
-    let dynamic = Unsigned.ULLong.of_int 1
+    let executable = Unsigned.ULong.of_int 0
+    let dynamic = Unsigned.ULong.of_int 1
 
     let sexp_of_t v =
       let open Sexplib0.Sexp in
-      if Unsigned.ULLong.equal v executable then Atom "Executable"
-      else if Unsigned.ULLong.equal v dynamic then Atom "Dynamic"
-      else Atom ("Unknown_LibraryType_" ^ Unsigned.ULLong.to_string v)
+      if Unsigned.ULong.equal v executable then Atom "Executable"
+      else if Unsigned.ULong.equal v dynamic then Atom "Dynamic"
+      else Atom ("Unknown_LibraryType_" ^ Unsigned.ULong.to_string v)
 
-    let to_ulong (t : t) : Unsigned.ulong =
-      match Unsigned.ULLong.to_int t with
-      | 0 -> Unsigned.ULong.zero
-      | 1 -> Unsigned.ULong.one
-      | _ -> invalid_arg "Unknown LibraryType"
+    let to_ulong (t : t) : Unsigned.ulong = t
   end
 
   module OptimizationLevel = struct
-    type t = Unsigned.ULLong.t
+    type t = Unsigned.ULong.t
 
-    let default = Unsigned.ULLong.of_int 0
-    let size = Unsigned.ULLong.of_int 1
-    let performance = Unsigned.ULLong.of_int 2
+    let default = Unsigned.ULong.of_int 0
+    let size = Unsigned.ULong.of_int 1
+    let performance = Unsigned.ULong.of_int 2
 
     let sexp_of_t v =
       let open Sexplib0.Sexp in
-      if Unsigned.ULLong.equal v default then Atom "Default"
-      else if Unsigned.ULLong.equal v size then Atom "Size"
-      else if Unsigned.ULLong.equal v performance then Atom "Performance"
-      else Atom ("Unknown_OptimizationLevel_" ^ Unsigned.ULLong.to_string v)
+      if Unsigned.ULong.equal v default then Atom "Default"
+      else if Unsigned.ULong.equal v size then Atom "Size"
+      else if Unsigned.ULong.equal v performance then Atom "Performance"
+      else Atom ("Unknown_OptimizationLevel_" ^ Unsigned.ULong.to_string v)
 
-    let to_ulong (t : t) : Unsigned.ulong =
-      match Unsigned.ULLong.to_int t with
-      | 0 -> Unsigned.ULong.zero
-      | 1 -> Unsigned.ULong.one
-      | 2 -> Unsigned.ULong.of_int 2
-      | _ -> invalid_arg "Unknown OptimizationLevel"
+    let to_ulong (t : t) : Unsigned.ulong = t
   end
 
   let set_fast_math_enabled self enabled =
@@ -467,19 +458,19 @@ module CompileOptions = struct
 
   let set_language_version self version =
     Objc.msg_send ~self ~cmd:(selector "setLanguageVersion:")
-      ~typ:(ullong @-> returning void)
+      ~typ:(ulong @-> returning void)
       version
 
   let get_language_version self =
-    Objc.msg_send ~self ~cmd:(selector "languageVersion") ~typ:(returning ullong)
+    Objc.msg_send ~self ~cmd:(selector "languageVersion") ~typ:(returning ulong)
 
   let set_library_type self library_type =
     Objc.msg_send ~self ~cmd:(selector "setLibraryType:")
-      ~typ:(ullong @-> returning void)
+      ~typ:(ulong @-> returning void)
       library_type
 
   let get_library_type self =
-    Objc.msg_send ~self ~cmd:(selector "libraryType") ~typ:(returning ullong)
+    Objc.msg_send ~self ~cmd:(selector "libraryType") ~typ:(returning ulong)
 
   let set_install_name self name =
     let ns_name = new_string name in
@@ -492,11 +483,11 @@ module CompileOptions = struct
   let set_optimization_level self level =
     Objc.msg_send ~self
       ~cmd:(selector "setOptimizationLevel:")
-      ~typ:(ullong @-> returning void)
+      ~typ:(ulong @-> returning void)
       level
 
   let get_optimization_level self =
-    Objc.msg_send ~self ~cmd:(selector "optimizationLevel") ~typ:(returning ullong)
+    Objc.msg_send ~self ~cmd:(selector "optimizationLevel") ~typ:(returning ulong)
 
   let sexp_of_t t =
     let fast_math = get_fast_math_enabled t in
@@ -852,7 +843,7 @@ module Library = struct
     Array.map ocaml_string_from_nsstring id_array
 
   let get_library_type (self : t) : CompileOptions.LibraryType.t =
-    let lt_val = Objc.msg_send ~self:self.id ~cmd:(selector "type") ~typ:(returning ullong) in
+    let lt_val = Objc.msg_send ~self:self.id ~cmd:(selector "type") ~typ:(returning ulong) in
     lt_val (* It's already the correct type *)
 
   let get_install_name (self : t) : string option =
