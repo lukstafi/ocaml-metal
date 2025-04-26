@@ -391,7 +391,8 @@ module Buffer : sig
       synchronization). *)
 
   val did_modify_range : t -> Range.t -> unit
-  (** Informs Metal that a range of a managed buffer was modified by the CPU. *)
+  (** Informs Metal that a range of a managed buffer was modified by the CPU.
+      This is not needed for shared buffers (NOTE: validation layer will report an error). *)
 
   val add_debug_marker : t -> marker:string -> Range.t -> unit
   (** Adds a debug marker to a range of the buffer. *)

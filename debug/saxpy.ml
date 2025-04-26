@@ -16,7 +16,7 @@ let copy_bigarray_to_buffer ba (buffer : Metal.Buffer.t) =
   let len = Array1.dim ba * element_size in
   (* Use to_voidp for compatibility with memcpy *)
   ignore (memcpy (to_voidp buffer_ptr) (to_voidp data_ptr) (Unsigned.Size_t.of_int len));
-  Metal.Buffer.did_modify_range buffer { location = 0; length = len }
+  (* Metal.Buffer.did_modify_range buffer { location = 0; length = len } *)
 
 (* Metal Shading Language (MSL) kernel for SAXPY *)
 let saxpy_kernel_source =
@@ -72,7 +72,7 @@ let _SAXPY_kernel_computation_test =
   (* Copy scalar 'a' *)
   let a_ptr : unit ptr = Metal.Buffer.contents buffer_a in
   coerce (ptr void) (ptr float) a_ptr <-@ a_val;
-  Metal.Buffer.did_modify_range buffer_a {location = 0; length = sizeof float};
+  (* Metal.Buffer.did_modify_range buffer_a {location = 0; length = sizeof float}; *)
 
   Printf.printf "Data copied to buffers.\n";
 

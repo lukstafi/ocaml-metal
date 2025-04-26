@@ -18,7 +18,7 @@ let%expect_test "Blit encoder operations" =
   for i = 0 to 9 do
     src_ptr +@ i <-@ float_of_int (i * 10)
   done;
-  Buffer.did_modify_range source_buffer { Range.location = 0; length = buffer_size };
+  (* Buffer.did_modify_range source_buffer { Range.location = 0; length = buffer_size }; *)
 
   (* Create command buffer and blit encoder *)
   let cmd_buffer = CommandBuffer.on_queue queue in
@@ -167,7 +167,7 @@ let%expect_test "Fence synchronization in blit encoder" =
   for i = 0 to 15 do
     src_ptr +@ i <-@ Unsigned.UInt8.of_int i
   done;
-  Buffer.did_modify_range source_buffer { Range.location = 0; length = buffer_size };
+  (* Buffer.did_modify_range source_buffer { Range.location = 0; length = buffer_size }; *)
 
   (* Create command buffer *)
   let cmd_buffer = CommandBuffer.on_queue queue in
@@ -283,7 +283,7 @@ let%expect_test "Indirect command buffer basics" =
     for i = 0 to 3 do
       ptr +@ i <-@ float_of_int (i + 1)
     done;
-    Buffer.did_modify_range buffer { Range.location = 0; length = buffer_size };
+    (* Buffer.did_modify_range buffer { Range.location = 0; length = buffer_size }; *)
 
     (* Set buffer in command *)
     IndirectComputeCommand.set_kernel_buffer cmd ~index:0 buffer;

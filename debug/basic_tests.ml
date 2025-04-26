@@ -59,7 +59,7 @@ let _Buffer_creation_and_operations =
   let contents = Buffer.contents buffer in
   let float_ptr = coerce (ptr void) (ptr float) contents in
   float_ptr <-@ 42.0;
-  Buffer.did_modify_range buffer { Range.location = 0; length = sizeof float };
+  (* Buffer.did_modify_range buffer { Range.location = 0; length = sizeof float }; *)
 
   let contents2 = Buffer.contents buffer in
   let float_ptr2 = coerce (ptr void) (ptr float) contents2 in
