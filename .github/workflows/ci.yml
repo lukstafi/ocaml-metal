@@ -1,0 +1,28 @@
+name: ci
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  run:
+    name: Build
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+        ocaml-compiler:
+          - 4.14.x
+          - 5.3.x
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ocaml/setup-ocaml@v3
+      with:
+        ocaml-compiler: ${{ matrix.ocaml-compiler }}
+        dune-cache: true
+        allow-prerelease-opam: true
+    - run: opam pin -n .
+    - run: opam install . -y --deps-only --with-test --with-doc
+    - run: opam exec -- dune build
+    - run: opam exec -- dune runtest

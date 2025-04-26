@@ -1,5 +1,7 @@
 # Code Coverage for OCaml Metal Bindings
 
+WARNING: AI slop. This file was generated with minimal review.
+
 This document outlines how to set up and measure code coverage for the Metal bindings.
 
 ## Tools
