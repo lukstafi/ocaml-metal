@@ -15,8 +15,8 @@ let copy_bigarray_to_buffer ba (buffer : Metal.Buffer.t) =
   let element_size = sizeof (Ctypes.typ_of_bigarray_kind kind) in
   let len = Array1.dim ba * element_size in
   (* Use to_voidp for compatibility with memcpy *)
-  ignore (memcpy (to_voidp buffer_ptr) (to_voidp data_ptr) (Unsigned.Size_t.of_int len));
-  (* Metal.Buffer.did_modify_range buffer { location = 0; length = len } *)
+  ignore (memcpy (to_voidp buffer_ptr) (to_voidp data_ptr) (Unsigned.Size_t.of_int len))
+  (* ; Metal.Buffer.did_modify_range buffer { location = 0; length = len } *)
 
 (* Metal Shading Language (MSL) kernel for SAXPY *)
 let saxpy_kernel_source =
