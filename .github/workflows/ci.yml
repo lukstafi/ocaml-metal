@@ -25,4 +25,4 @@ jobs:
     - run: opam pin -n .
     - run: opam install . -y --deps-only --with-test --with-doc
     - run: opam exec -- dune build
-    - run: MTL_DEBUG_LAYER=1 MTL_SHADER_VALIDATION=1 MTL_SHADER_VALIDATION_REPORT_TO_STDERR=1 opam exec -- dune runtest
+    - run: MTL_DEBUG_LAYER=1 MTL_SHADER_VALIDATION=1 MTL_SHADER_VALIDATION_REPORT_TO_STDERR=1 opam exec -- dune runtest --verbose
