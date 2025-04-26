@@ -260,8 +260,9 @@ let _Indirect_command_buffer_basics =
     (* Create indirect command buffer *)
     Printf.printf "Creating indirect command buffer...\n%!";
     let icb =
+      (* NOTE: storage_mode_shared fails on CI machines (paravirtual devices) *)
       IndirectCommandBuffer.on_device_with_descriptor device icb_desc ~max_command_count:1
-        ~options:ResourceOptions.storage_mode_shared
+        ~options:ResourceOptions.storage_mode_private
     in
     Printf.printf "Indirect command buffer created\n%!";
 

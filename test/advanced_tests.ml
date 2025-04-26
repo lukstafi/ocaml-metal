@@ -263,8 +263,9 @@ let%expect_test "Indirect command buffer basics" =
 
     (* Create indirect command buffer *)
     let icb =
+      (* NOTE: storage_mode_shared fails on CI machines (paravirtual devices) *)
       IndirectCommandBuffer.on_device_with_descriptor device icb_desc ~max_command_count:1
-        ~options:ResourceOptions.storage_mode_shared
+        ~options:ResourceOptions.storage_mode_private
     in
 
     (* Get indirect compute command *)
