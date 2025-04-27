@@ -23,9 +23,13 @@ depends: [
   "odoc" {with-doc}
   "camlkit-base"
 ]
+dev-repo: "git+https://github.com/lukstafi/ocaml-metal.git"
+x-maintenance-intent: ["(latest)"]
+available: os = "macos"
 build: [
   ["dune" "subst"] {dev}
   [
+    "OCAML_METAL_SKIP_ICB_TEST=true" {with-test}
     "dune"
     "build"
     "-p"
@@ -37,6 +41,3 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/lukstafi/ocaml-metal.git"
-x-maintenance-intent: ["(latest)"]
-available: os = "macos"
