@@ -1,6 +1,17 @@
 (library
  (name metal_tests)
- (modules saxpy basic_tests error_tests advanced_tests coverage_utils)
+ (modules saxpy basic_tests error_tests advanced_tests coverage_tests)
+ (libraries base stdio metal ctypes.foreign)
+ (inline_tests)
+ (preprocess
+  (pps ppx_expect)))
+
+; This test fails if run on CI "paravirtual machine".
+(library
+ (name metal_tests_icb)
+ (enabled_if
+  (= %{env:OCAML_METAL_SKIP_ICB_TEST=false} false))
+ (modules advanced_tests_icb)
  (libraries base stdio metal ctypes.foreign)
  (inline_tests)
  (preprocess

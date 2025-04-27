@@ -26,5 +26,4 @@ jobs:
     - run: opam install . -y --deps-only --with-test --with-doc
     - run: opam exec -- dune build
     - run: opam exec -- dune exec bin/properties.exe
-    - run: opam exec -- dune exec debug/advanced_tests.exe
-    - run: opam exec -- dune runtest --verbose
+    - run: OCAML_METAL_SKIP_ICB_TEST=true opam exec -- dune runtest
