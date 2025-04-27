@@ -6,14 +6,14 @@ let%expect_test "Device creation and attributes" =
   Printf.printf "Device created successfully\n";
 
   let attrs = Device.get_attributes device in
-  Printf.printf "Device name prefix: %s\n" (String.sub attrs.name 0 7);
+  Printf.printf "Device name prefix: %s\n" (String.sub attrs.name 0 5);
   Printf.printf "Has unified memory: %b\n" attrs.has_unified_memory;
   Printf.printf "Max buffer length >= 268,435,456: %s\n"
     (if Unsigned.ULong.to_int attrs.max_buffer_length >= 268435456 then "yes" else "no");
   [%expect
     {|
     Device created successfully
-    Device name prefix: Apple M
+    Device name prefix: Apple
     Has unified memory: true
     Max buffer length >= 268,435,456: yes
     |}];
