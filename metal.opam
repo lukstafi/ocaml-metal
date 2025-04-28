@@ -13,7 +13,7 @@ homepage: "https://github.com/lukstafi/ocaml-metal"
 doc: "https://github.com/lukstafi/ocaml-metal/blob/main/README.md"
 bug-reports: "https://github.com/lukstafi/ocaml-metal/issues"
 depends: [
-  "ocaml" {>= "4.13"}
+  "ocaml" {>= "4.14"}
   "dune" {>= "3.18"}
   "ctypes" {>= "0.14.0"}
   "ctypes-foreign"

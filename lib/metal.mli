@@ -84,6 +84,11 @@ module Device : sig
       {{:https://developer.apple.com/documentation/metal/1433401-mtlcreatesystemdefaultdevice}
        MTLCreateSystemDefaultDevice}. *)
 
+  val copy_all_devices : unit -> t array
+  (** Returns an array of all the Metal device instances in the system. See
+      {{:https://developer.apple.com/documentation/metal/mtlcopyalldevices}
+       MTLCopyAllDevices}. *)
+
   (** Describes the level of support for argument buffers. See
       {{:https://developer.apple.com/documentation/metal/mtlargumentbufferstier}
        MTLArgumentBuffersTier}. *)

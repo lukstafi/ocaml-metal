@@ -1,0 +1,6 @@
+Source: https://developer.apple.com/documentation/metal/mtlcopyalldevices()?language=objc
+Function
+MTLCopyAllDevices
+Returns an array of all the Metal device instances in the system.
+NSArray<id<MTLDevice>> * MTLCopyAllDevices(void);
+Current page is MTLCopyAllDevices

@@ -3,3 +3,4 @@
 ### Added
 
 - Coverage of most of the general computation related parts of the Metal framework.
+- `MTLCreateSystemDefaultDevice`

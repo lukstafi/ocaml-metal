@@ -243,6 +243,11 @@ module Device = struct
     let select = "MTLCreateSystemDefaultDevice" in
     gc ~select (Foreign.foreign select (void @-> returning Objc.id) ())
 
+  let copy_all_devices () =
+    let select = "MTLCopyAllDevices" in
+    let devices_nsarray = gc ~select (Foreign.foreign select (void @-> returning Objc.id) ()) in
+    from_nsarray devices_nsarray
+
   module ArgumentBuffersTier = struct
     type t = Tier1 | Tier2 [@@deriving sexp_of]
 

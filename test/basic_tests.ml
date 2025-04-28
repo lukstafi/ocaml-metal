@@ -23,6 +23,37 @@ let%expect_test "Device creation and attributes" =
   ignore (attrs.registry_id : Unsigned.ULLong.t);
   ()
 
+let%expect_test "Copy all devices" =
+  let default_device = Device.create_system_default () in
+  let default_name = 
+    let attrs = Device.get_attributes default_device in
+    attrs.name in
+  
+  let all_devices = Device.copy_all_devices () in
+  Printf.printf "Found %d Metal device(s)\n" (Array.length all_devices);
+  assert (Array.length all_devices > 0);
+  
+  let first_device_name = 
+    let attrs = Device.get_attributes all_devices.(0) in
+    attrs.name in
+  
+  Printf.printf "System default device prefix: %s\n" (String.sub default_name 0 5);
+  Printf.printf "First device in array prefix: %s\n" (String.sub first_device_name 0 5);
+  Printf.printf "Default device is first in array: %b\n" (default_name = first_device_name);
+  
+  (* Print names of all devices *)
+  Array.iteri (fun i device ->
+    let attrs = Device.get_attributes device in
+    Printf.printf "Device %d prefix: %s\n" i (String.sub attrs.name 0 5)) all_devices;
+  
+  [%expect {|
+    Found 1 Metal device(s)
+    System default device prefix: Apple
+    First device in array prefix: Apple
+    Default device is first in array: true
+    Device 0 prefix: Apple
+  |}]
+
 let%expect_test "Size, Origin, and Region operations" =
   (* Test Size module *)
   let size = Size.make ~width:100 ~height:200 ~depth:300 in
