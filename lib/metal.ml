@@ -428,14 +428,13 @@ module CompileOptions = struct
 
     let executable = Unsigned.ULong.of_int 0
     let dynamic = Unsigned.ULong.of_int 1
-
-    let sexp_of_t v =
-      let open Sexplib0.Sexp in
-      if Unsigned.ULong.equal v executable then Atom "Executable"
-      else if Unsigned.ULong.equal v dynamic then Atom "Dynamic"
-      else Atom ("Unknown_LibraryType_" ^ Unsigned.ULong.to_string v)
-
     let to_ulong (t : t) : Unsigned.ulong = t
+
+    let sexp_of_t t =
+      match Unsigned.ULong.to_int t with
+      | 0 -> Sexplib0.Sexp.Atom "Executable"
+      | 1 -> Sexplib0.Sexp.Atom "Dynamic"
+      | _ -> Sexplib0.Sexp.Atom (Printf.sprintf "Unknown(%s)" (Unsigned.ULong.to_string t))
   end
 
   module OptimizationLevel = struct
@@ -443,53 +442,126 @@ module CompileOptions = struct
 
     let default = Unsigned.ULong.of_int 0
     let size = Unsigned.ULong.of_int 1
-
-    let sexp_of_t v =
-      let open Sexplib0.Sexp in
-      if Unsigned.ULong.equal v default then Atom "Default"
-      else if Unsigned.ULong.equal v size then Atom "Size"
-      else Atom ("Unknown_OptimizationLevel_" ^ Unsigned.ULong.to_string v)
-
     let to_ulong (t : t) : Unsigned.ulong = t
+
+    let sexp_of_t t =
+      match Unsigned.ULong.to_int t with
+      | 0 -> Sexplib0.Sexp.Atom "Default"
+      | 1 -> Sexplib0.Sexp.Atom "Size"
+      | _ -> Sexplib0.Sexp.Atom (Printf.sprintf "Unknown(%s)" (Unsigned.ULong.to_string t))
   end
 
-  let set_fast_math_enabled self enabled =
-    Objc.msg_send ~self ~cmd:(selector "setFastMathEnabled:") ~typ:(bool @-> returning void) enabled
+  module MathMode = struct
+    type t = Safe | Relaxed | Fast
 
-  let get_fast_math_enabled self =
+    let to_ulong = function
+      | Safe -> Unsigned.ULong.of_int 0
+      | Relaxed -> Unsigned.ULong.of_int 1
+      | Fast -> Unsigned.ULong.of_int 2
+
+    let from_ulong ul =
+      match Unsigned.ULong.to_int ul with
+      | 0 -> Safe
+      | 1 -> Relaxed
+      | 2 -> Fast
+      | n -> failwith (Printf.sprintf "Unknown MathMode value: %d" n)
+
+    let sexp_of_t = function
+      | Safe -> Sexplib0.Sexp.Atom "Safe"
+      | Relaxed -> Sexplib0.Sexp.Atom "Relaxed"
+      | Fast -> Sexplib0.Sexp.Atom "Fast"
+  end
+
+  module MathFloatingPointFunctions = struct
+    type t = Fast | Precise
+
+    let to_ulong = function Fast -> Unsigned.ULong.of_int 0 | Precise -> Unsigned.ULong.of_int 1
+
+    let from_ulong ul =
+      match Unsigned.ULong.to_int ul with
+      | 0 -> Fast
+      | 1 -> Precise
+      | n -> failwith (Printf.sprintf "Unknown MathFloatingPointFunctions value: %d" n)
+
+    let sexp_of_t = function
+      | Fast -> Sexplib0.Sexp.Atom "Fast"
+      | Precise -> Sexplib0.Sexp.Atom "Precise"
+  end
+
+  let set_fast_math_enabled (self : t) (value : bool) : unit =
+    Objc.msg_send ~self ~cmd:(selector "setFastMathEnabled:") ~typ:(bool @-> returning void) value
+
+  let get_fast_math_enabled (self : t) : bool =
     Objc.msg_send ~self ~cmd:(selector "fastMathEnabled") ~typ:(returning bool)
 
-  let set_language_version self version =
+  let set_math_mode (self : t) (mode : MathMode.t) : unit =
+    Objc.msg_send ~self ~cmd:(selector "setMathMode:")
+      ~typ:(ulong @-> returning void)
+      (MathMode.to_ulong mode)
+
+  let get_math_mode (self : t) : MathMode.t =
+    let mode_val = Objc.msg_send ~self ~cmd:(selector "mathMode") ~typ:(returning ulong) in
+    MathMode.from_ulong mode_val
+
+  let set_math_floating_point_functions (self : t) (funcs : MathFloatingPointFunctions.t) : unit =
+    Objc.msg_send ~self
+      ~cmd:(selector "setMathFloatingPointFunctions:")
+      ~typ:(ulong @-> returning void)
+      (MathFloatingPointFunctions.to_ulong funcs)
+
+  let get_math_floating_point_functions (self : t) : MathFloatingPointFunctions.t =
+    let funcs_val =
+      Objc.msg_send ~self ~cmd:(selector "mathFloatingPointFunctions") ~typ:(returning ulong)
+    in
+    MathFloatingPointFunctions.from_ulong funcs_val
+
+  let set_enable_logging (self : t) (value : bool) : unit =
+    Objc.msg_send ~self ~cmd:(selector "setEnableLogging:") ~typ:(bool @-> returning void) value
+
+  let get_enable_logging (self : t) : bool =
+    Objc.msg_send ~self ~cmd:(selector "enableLogging") ~typ:(returning bool)
+
+  let set_max_total_threads_per_threadgroup (self : t) (value : int) : unit =
+    Objc.msg_send ~self
+      ~cmd:(selector "setMaxTotalThreadsPerThreadgroup:")
+      ~typ:(ulong @-> returning void)
+      (Unsigned.ULong.of_int value)
+
+  let get_max_total_threads_per_threadgroup (self : t) : int =
+    let val_ulong =
+      Objc.msg_send ~self ~cmd:(selector "maxTotalThreadsPerThreadgroup") ~typ:(returning ulong)
+    in
+    Unsigned.ULong.to_int val_ulong
+
+  let set_language_version (self : t) (version : LanguageVersion.t) : unit =
     Objc.msg_send ~self ~cmd:(selector "setLanguageVersion:")
       ~typ:(ulong @-> returning void)
       version
 
-  let get_language_version self =
+  let get_language_version (self : t) : LanguageVersion.t =
     Objc.msg_send ~self ~cmd:(selector "languageVersion") ~typ:(returning ulong)
 
-  let set_library_type self library_type =
-    Objc.msg_send ~self ~cmd:(selector "setLibraryType:")
-      ~typ:(ulong @-> returning void)
-      library_type
+  let set_library_type (self : t) (lt : LibraryType.t) : unit =
+    Objc.msg_send ~self ~cmd:(selector "setLibraryType:") ~typ:(ulong @-> returning void) lt
 
-  let get_library_type self =
+  let get_library_type (self : t) : LibraryType.t =
     Objc.msg_send ~self ~cmd:(selector "libraryType") ~typ:(returning ulong)
 
-  let set_install_name self name =
+  let set_install_name (self : t) (name : string) : unit =
     let ns_name = new_string name in
     Objc.msg_send ~self ~cmd:(selector "setInstallName:") ~typ:(Objc.id @-> returning void) ns_name
 
-  let get_install_name self =
+  let get_install_name (self : t) : string =
     let ns_name = Objc.msg_send ~self ~cmd:(selector "installName") ~typ:(returning Objc.id) in
     ocaml_string_from_nsstring ns_name
 
-  let set_optimization_level self level =
+  let set_optimization_level (self : t) (level : OptimizationLevel.t) : unit =
     Objc.msg_send ~self
       ~cmd:(selector "setOptimizationLevel:")
       ~typ:(ulong @-> returning void)
       level
 
-  let get_optimization_level self =
+  let get_optimization_level (self : t) : OptimizationLevel.t =
     Objc.msg_send ~self ~cmd:(selector "optimizationLevel") ~typ:(returning ulong)
 
   let sexp_of_t t =
@@ -498,19 +570,55 @@ module CompileOptions = struct
     let lib_type_val = get_library_type t in
     let install_name_val = get_install_name t in
     let opt_level_val = get_optimization_level t in
+    let math_mode_val = try Some (get_math_mode t) with _ -> None in
+    let math_fp_funcs_val = try Some (get_math_floating_point_functions t) with _ -> None in
+    let enable_logging_val = try Some (get_enable_logging t) with _ -> None in
+    let max_threads_val = try Some (get_max_total_threads_per_threadgroup t) with _ -> None in
     Sexplib0.Sexp.List
-      [
-        Sexplib0.Sexp.Atom "<MTLCompileOptions>";
-        Sexplib0.Sexp.List
-          [ Sexplib0.Sexp.Atom "fast_math"; Sexplib0.Sexp.Atom (Bool.to_string fast_math) ];
-        Sexplib0.Sexp.List
-          [ Sexplib0.Sexp.Atom "language_version"; LanguageVersion.sexp_of_t lang_version_val ];
-        Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "library_type"; LibraryType.sexp_of_t lib_type_val ];
-        Sexplib0.Sexp.List
-          [ Sexplib0.Sexp.Atom "install_name"; Sexplib0.Sexp.Atom install_name_val ];
-        Sexplib0.Sexp.List
-          [ Sexplib0.Sexp.Atom "optimization_level"; OptimizationLevel.sexp_of_t opt_level_val ];
-      ]
+      ([
+         Sexplib0.Sexp.Atom "<MTLCompileOptions>";
+         Sexplib0.Sexp.List
+           [ Sexplib0.Sexp.Atom "fast_math"; Sexplib0.Sexp.Atom (Bool.to_string fast_math) ];
+         Sexplib0.Sexp.List
+           [ Sexplib0.Sexp.Atom "language_version"; LanguageVersion.sexp_of_t lang_version_val ];
+         Sexplib0.Sexp.List
+           [ Sexplib0.Sexp.Atom "library_type"; LibraryType.sexp_of_t lib_type_val ];
+         Sexplib0.Sexp.List
+           [ Sexplib0.Sexp.Atom "install_name"; Sexplib0.Sexp.Atom install_name_val ];
+         Sexplib0.Sexp.List
+           [ Sexplib0.Sexp.Atom "optimization_level"; OptimizationLevel.sexp_of_t opt_level_val ];
+       ]
+      @ (match math_mode_val with
+        | Some m -> [ Sexplib0.Sexp.List [ Sexplib0.Sexp.Atom "math_mode"; MathMode.sexp_of_t m ] ]
+        | None -> [])
+      @ (match math_fp_funcs_val with
+        | Some f ->
+            [
+              Sexplib0.Sexp.List
+                [
+                  Sexplib0.Sexp.Atom "math_floating_point_functions";
+                  MathFloatingPointFunctions.sexp_of_t f;
+                ];
+            ]
+        | None -> [])
+      @ (match enable_logging_val with
+        | Some l ->
+            [
+              Sexplib0.Sexp.List
+                [ Sexplib0.Sexp.Atom "enable_logging"; Sexplib0.Sexp.Atom (Bool.to_string l) ];
+            ]
+        | None -> [])
+      @
+      match max_threads_val with
+      | Some t ->
+          [
+            Sexplib0.Sexp.List
+              [
+                Sexplib0.Sexp.Atom "max_total_threads_per_threadgroup";
+                Sexplib0.Sexp.Atom (Int.to_string t);
+              ];
+          ]
+      | None -> [])
 end
 
 (* === Resources === *)
@@ -559,7 +667,9 @@ module Resource = struct
       | 1 -> WriteCombined
       | _ -> invalid_arg "Unknown CPUCacheMode"
 
-    let to_ulong = function DefaultCache -> Unsigned.ULong.zero | WriteCombined -> Unsigned.ULong.one
+    let to_ulong = function
+      | DefaultCache -> Unsigned.ULong.zero
+      | WriteCombined -> Unsigned.ULong.one
   end
 
   module StorageMode = struct
@@ -605,7 +715,9 @@ module Resource = struct
     StorageMode.from_ulong mode_val
 
   let get_hazard_tracking_mode (self : t) : HazardTrackingMode.t =
-    let mode_val = Objc.msg_send ~self ~cmd:(selector "hazardTrackingMode") ~typ:(returning ulong) in
+    let mode_val =
+      Objc.msg_send ~self ~cmd:(selector "hazardTrackingMode") ~typ:(returning ulong)
+    in
     HazardTrackingMode.from_ulong mode_val
 
   let get_resource_options (self : t) : ResourceOptions.t =
@@ -666,8 +778,7 @@ module Buffer = struct
   let on_device (device : Device.t) ~length options : t =
     let select = "newBufferWithLength:options:" in
     let id =
-      Objc.msg_send ~self:device
-        ~cmd:(selector select)
+      Objc.msg_send ~self:device ~cmd:(selector select)
         ~typ:(ulong @-> ulong @-> returning Objc.id)
         (Unsigned.ULong.of_int length) options
     in
@@ -676,8 +787,7 @@ module Buffer = struct
   let on_device_with_bytes (device : Device.t) ~bytes ~length options : t =
     let select = "newBufferWithBytes:length:options:" in
     let id =
-      Objc.msg_send ~self:device
-        ~cmd:(selector select)
+      Objc.msg_send ~self:device ~cmd:(selector select)
         ~typ:(ptr void @-> ulong @-> ulong @-> returning Objc.id)
         bytes (Unsigned.ULong.of_int length) options
     in
@@ -693,8 +803,7 @@ module Buffer = struct
     in
     let select = "newBufferWithBytesNoCopy:length:options:deallocator:" in
     let id =
-      Objc.msg_send ~self:device
-        ~cmd:(selector select)
+      Objc.msg_send ~self:device ~cmd:(selector select)
         ~typ:(ptr void @-> ulong @-> ulong @-> ptr void @-> returning Objc.id)
         bytes (Unsigned.ULong.of_int length) options dealloc_block
     in
@@ -802,8 +911,7 @@ module Library = struct
     let ns_source = new_string source in
     let err_ptr = allocate Objc.id nil in
     let lib =
-      Objc.msg_send ~self:device
-        ~cmd:(selector select)
+      Objc.msg_send ~self:device ~cmd:(selector select)
         ~typ:(Objc.id @-> Objc.id @-> ptr Objc.id @-> returning Objc.id)
         ns_source options err_ptr
     in
@@ -814,8 +922,7 @@ module Library = struct
     let err_ptr = allocate Objc.id nil in
     let select = "newLibraryWithData:error:" in
     let lib =
-      Objc.msg_send ~self:device
-        ~cmd:(selector select)
+      Objc.msg_send ~self:device ~cmd:(selector select)
         ~typ:(ptr void @-> ptr Objc.id @-> returning Objc.id)
           (* dispatch_data_t maps to ptr void? Check C *)
         (coerce (ptr void) (ptr void) data)
@@ -829,8 +936,7 @@ module Library = struct
     let select = "newFunctionWithName:" in
     let ns_name = new_string name in
     let func =
-      Objc.msg_send ~self:self.id
-        ~cmd:(selector select)
+      Objc.msg_send ~self:self.id ~cmd:(selector select)
         ~typ:(Objc.id @-> returning Objc.id)
         ns_name
     in
@@ -841,7 +947,9 @@ module Library = struct
   (* Skipping newIntersectionFunctionWithDescriptor variants for brevity *)
 
   let get_function_names (self : t) : string array =
-    let ns_array = Objc.msg_send ~self:self.id ~cmd:(selector "functionNames") ~typ:(returning Objc.id) in
+    let ns_array =
+      Objc.msg_send ~self:self.id ~cmd:(selector "functionNames") ~typ:(returning Objc.id)
+    in
     let id_array = from_nsarray ns_array in
     Array.map ocaml_string_from_nsstring id_array
 
@@ -850,7 +958,9 @@ module Library = struct
     lt_val (* It's already the correct type *)
 
   let get_install_name (self : t) : string option =
-    let ns_name = Objc.msg_send ~self:self.id ~cmd:(selector "installName") ~typ:(returning Objc.id) in
+    let ns_name =
+      Objc.msg_send ~self:self.id ~cmd:(selector "installName") ~typ:(returning Objc.id)
+    in
     if is_nil ns_name then None else Some (ocaml_string_from_nsstring ns_name)
 
   let sexp_of_t t =
@@ -873,7 +983,6 @@ module ComputePipelineDescriptor = struct
   type t = Objc.object_t
 
   let create () = new_gc ~class_name:"MTLComputePipelineDescriptor"
-
   let set_label (self : t) label = Resource.set_label self label
   let get_label (self : t) = Resource.get_label self
 
@@ -916,8 +1025,7 @@ module ComputePipelineState = struct
     let err_ptr = allocate Objc.id nil in
     let maybe_reflection_ptr = if reflection then allocate Objc.id nil else nil_ptr in
     let pso =
-      Objc.msg_send ~self:device
-        ~cmd:(selector select)
+      Objc.msg_send ~self:device ~cmd:(selector select)
         ~typ:(Objc.id @-> ulong @-> ptr Objc.id @-> ptr Objc.id @-> returning Objc.id)
         func options maybe_reflection_ptr err_ptr
     in
@@ -930,8 +1038,7 @@ module ComputePipelineState = struct
     let err_ptr = allocate Objc.id nil in
     let maybe_reflection_ptr = if reflection then allocate Objc.id nil else nil_ptr in
     let pso =
-      Objc.msg_send ~self:device
-        ~cmd:(selector select)
+      Objc.msg_send ~self:device ~cmd:(selector select)
         ~typ:(Objc.id @-> ulong @-> ptr Objc.id @-> ptr Objc.id @-> returning Objc.id)
         desc options maybe_reflection_ptr err_ptr
     in
@@ -986,16 +1093,13 @@ module CommandQueue = struct
 
   let on_device (device : Device.t) : t =
     let select = "newCommandQueue" in
-    let queue =
-      Objc.msg_send ~self:device ~cmd:(selector select) ~typ:(returning Objc.id)
-    in
+    let queue = Objc.msg_send ~self:device ~cmd:(selector select) ~typ:(returning Objc.id) in
     gc ~select queue
 
   let on_device_with_max_buffer_count (device : Device.t) max_count : t =
     let select = "newCommandQueueWithMaxCommandBufferCount:" in
     let queue =
-      Objc.msg_send ~self:device
-        ~cmd:(selector select)
+      Objc.msg_send ~self:device ~cmd:(selector select)
         ~typ:(ulong @-> returning Objc.id)
         (Unsigned.ULong.of_int max_count)
     in
@@ -1034,11 +1138,7 @@ module CommandBuffer = struct
   let on_queue_with_unretained_references (queue : CommandQueue.t) : t =
     (* Returns CommandBuffer.t *)
     let select = "commandBufferWithUnretainedReferences" in
-    let id =
-      Objc.msg_send ~self:queue
-        ~cmd:(selector select)
-        ~typ:(returning Objc.id)
-    in
+    let id = Objc.msg_send ~self:queue ~cmd:(selector select) ~typ:(returning Objc.id) in
     { id = gc ~select id; lifetime = Lifetime () }
 
   (* command_buffer_with_descriptor requires MTLCommandBufferDescriptor, skipping for now *)
@@ -1209,9 +1309,7 @@ module ComputeCommandEncoder = struct
   let on_buffer (self : CommandBuffer.t) : t =
     (* Returns ComputeCommandEncoder.t *)
     let select = "computeCommandEncoder" in
-    let encoder =
-      Objc.msg_send ~self:self.id ~cmd:(selector select) ~typ:(returning Objc.id)
-    in
+    let encoder = Objc.msg_send ~self:self.id ~cmd:(selector select) ~typ:(returning Objc.id) in
     gc ~select encoder
 
   module DispatchType = struct
@@ -1224,8 +1322,7 @@ module ComputeCommandEncoder = struct
     (* Returns ComputeCommandEncoder.t *)
     let select = "computeCommandEncoderWithDispatchType:" in
     let encoder =
-      Objc.msg_send ~self:self.id
-        ~cmd:(selector select)
+      Objc.msg_send ~self:self.id ~cmd:(selector select)
         ~typ:(ulong @-> returning Objc.id)
         (DispatchType.to_ulong dispatch_type)
     in
@@ -1319,12 +1416,11 @@ module BlitCommandEncoder = struct
     Sexplib0.Sexp.message "<BlitCommandEncoder>"
       [ ("label", Atom label); ("device", Device.sexp_of_t device) ]
 
-  let on_buffer (cmdbuf : CommandBuffer.t) : t = (* Correct argument type to CommandBuffer.t *) 
+  let on_buffer (cmdbuf : CommandBuffer.t) : t =
+    (* Correct argument type to CommandBuffer.t *)
     (* Returns BlitCommandEncoder.t *)
     let select = "blitCommandEncoder" in
-    let encoder =
-      Objc.msg_send ~self:cmdbuf.id ~cmd:(selector select) ~typ:(returning Objc.id)
-    in
+    let encoder = Objc.msg_send ~self:cmdbuf.id ~cmd:(selector select) ~typ:(returning Objc.id) in
     gc ~select encoder
 
   let end_encoding (self : t) = CommandEncoder.end_encoding self
@@ -1350,7 +1446,7 @@ module BlitCommandEncoder = struct
       ~cmd:(selector "fillBuffer:range:value:")
       ~typ:(Objc.id @-> Range.nsrange_t @-> uchar @-> returning void)
       buffer.id !@ns_range (Unsigned.UChar.of_int value);
-  ignore (Sys.opaque_identity ns_range)
+    ignore (Sys.opaque_identity ns_range)
 
   let synchronize_resource (self : t) resource =
     Objc.msg_send ~self ~cmd:(selector "synchronizeResource:")
@@ -1431,9 +1527,7 @@ module SharedEvent = struct
 
   let new_shared_event_handle (self : t) : SharedEventHandle.t =
     let select = "newSharedEventHandle" in
-    let handle =
-      Objc.msg_send ~self:self.id ~cmd:(selector select) ~typ:(returning Objc.id)
-    in
+    let handle = Objc.msg_send ~self:self.id ~cmd:(selector select) ~typ:(returning Objc.id) in
     gc ~select handle
 
   let wait_until_signaled_value (self : t) ~value ~timeout_ms : bool =
@@ -1572,8 +1666,7 @@ module IndirectCommandBuffer = struct
   let on_device_with_descriptor (device : Device.t) descriptor ~max_command_count ~options : t =
     let select = "newIndirectCommandBufferWithDescriptor:maxCommandCount:options:" in
     let icb =
-      Objc.msg_send ~self:device
-        ~cmd:(selector select)
+      Objc.msg_send ~self:device ~cmd:(selector select)
         ~typ:(Objc.id @-> ulong @-> ulong @-> returning Objc.id)
         descriptor
         (Unsigned.ULong.of_int max_command_count)
@@ -1592,8 +1685,7 @@ module IndirectCommandBuffer = struct
   let indirect_compute_command_at_index (self : t) index : IndirectComputeCommand.t =
     let select = "indirectComputeCommandAtIndex:" in
     let cmd =
-      Objc.msg_send ~self
-        ~cmd:(selector select)
+      Objc.msg_send ~self ~cmd:(selector select)
         ~typ:(ulong @-> returning Objc.id)
         (Unsigned.ULong.of_int index)
     in

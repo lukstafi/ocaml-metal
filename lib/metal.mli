@@ -86,8 +86,7 @@ module Device : sig
 
   val copy_all_devices : unit -> t array
   (** Returns an array of all the Metal device instances in the system. See
-      {{:https://developer.apple.com/documentation/metal/mtlcopyalldevices}
-       MTLCopyAllDevices}. *)
+      {{:https://developer.apple.com/documentation/metal/mtlcopyalldevices} MTLCopyAllDevices}. *)
 
   (** Describes the level of support for argument buffers. See
       {{:https://developer.apple.com/documentation/metal/mtlargumentbufferstier}
@@ -126,6 +125,7 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlresourceoptions} MTLResourceOptions}. *)
 module ResourceOptions : sig
   type t [@@deriving sexp_of]
+
   (* Storage Modes (MTLStorageMode) *)
   val storage_mode_shared : t
   (** Shared between CPU and GPU. See
@@ -257,10 +257,49 @@ module CompileOptions : sig
     val to_ulong : t -> Unsigned.ulong
   end
 
+  (** Specifies the math mode for floating-point optimizations. See
+      {{:https://developer.apple.com/documentation/metal/mtlmathmode} MTLMathMode}. *)
+  module MathMode : sig
+    type t = Safe | Relaxed | Fast [@@deriving sexp_of]
+
+    val to_ulong : t -> Unsigned.ulong
+    val from_ulong : Unsigned.ulong -> t
+  end
+
+  (** Specifies which math functions to use for single precision floating-point. See
+      {{:https://developer.apple.com/documentation/metal/mtlmathfloatingpointfunctions}
+       MTLMathFloatingPointFunctions}. *)
+  module MathFloatingPointFunctions : sig
+    type t = Fast | Precise [@@deriving sexp_of]
+
+    val to_ulong : t -> Unsigned.ulong
+    val from_ulong : Unsigned.ulong -> t
+  end
+
   val set_fast_math_enabled : t -> bool -> unit
   (** Enables or disables fast math optimizations. *)
 
   val get_fast_math_enabled : t -> bool
+
+  val set_math_mode : t -> MathMode.t -> unit
+  (** Sets the floating-point arithmetic optimizations mode. *)
+
+  val get_math_mode : t -> MathMode.t
+
+  val set_math_floating_point_functions : t -> MathFloatingPointFunctions.t -> unit
+  (** Sets the default math functions for single precision floating-point. *)
+
+  val get_math_floating_point_functions : t -> MathFloatingPointFunctions.t
+
+  val set_enable_logging : t -> bool -> unit
+  (** Enables or disables logging in shaders. *)
+
+  val get_enable_logging : t -> bool
+
+  val set_max_total_threads_per_threadgroup : t -> int -> unit
+  (** Sets the maximum total threads per threadgroup. *)
+
+  val get_max_total_threads_per_threadgroup : t -> int
 
   val set_language_version : t -> LanguageVersion.t -> unit
   (** Sets the Metal Shading Language version. *)
@@ -324,7 +363,7 @@ module Resource : sig
   module StorageMode : sig
     type t = Shared | Managed | Private | Memoryless [@@deriving sexp_of]
 
-     val to_ulong : t -> Unsigned.ulong
+    val to_ulong : t -> Unsigned.ulong
     val from_ulong : Unsigned.ulong -> t
   end
 
@@ -393,8 +432,8 @@ module Buffer : sig
       synchronization). *)
 
   val did_modify_range : t -> Range.t -> unit
-  (** Informs Metal that a range of a managed buffer was modified by the CPU.
-      This is not needed for shared buffers (NOTE: validation layer will report an error). *)
+  (** Informs Metal that a range of a managed buffer was modified by the CPU. This is not needed for
+      shared buffers (NOTE: validation layer will report an error). *)
 
   val add_debug_marker : t -> marker:string -> Range.t -> unit
   (** Adds a debug marker to a range of the buffer. *)
