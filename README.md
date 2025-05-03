@@ -151,6 +151,7 @@ The following classes or protocols are not yet bound, but support is planned in 
 - `MTLHeap`
 - `MTLFunctionOptions`
 - `MTLBinaryArchive`, `MTLBinaryArchiveDescriptor`
+- `MTLDynamicLibrary`
 
 ## License
 
