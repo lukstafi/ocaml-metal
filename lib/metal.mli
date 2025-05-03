@@ -7,7 +7,6 @@ module Objc : sig
     self:object_t -> cmd:objc_selector Ctypes.structure Ctypes_static.ptr -> typ:'a fn -> 'a
 end
 
-
 (** {2 Basic Structures} *)
 
 (** Represents the dimensions of a grid, region, or threadgroup. See
@@ -66,7 +65,8 @@ module Device : sig
 
   val copy_all_devices : unit -> t array
   (** Returns an array of all the Metal device instances in the system. See
-      {{:https://developer.apple.com/documentation/metal/mtlcopyalldevices} MTLCopyAllDevices}. *)
+      {{:https://developer.apple.com/documentation/metal/mtlcopyalldevices()/} MTLCopyAllDevices}.
+  *)
 
   (** Describes the level of support for argument buffers. See
       {{:https://developer.apple.com/documentation/metal/mtlargumentbufferstier}
@@ -80,7 +80,7 @@ module Device : sig
   type attributes = {
     name : string;
     registry_id : Unsigned.ULLong.t;
-    max_threads_per_threadgroup : Size.t;  (** Changed from device_size to Size.t *)
+    max_threads_per_threadgroup : Size.t;
     max_buffer_length : Unsigned.ULong.t;
     max_threadgroup_memory_length : Unsigned.ULong.t;
     argument_buffers_support : ArgumentBuffersTier.t;
@@ -168,12 +168,8 @@ module PipelineOption : sig
   type t [@@deriving sexp_of]
 
   val none : t
-
   val argument_info : t
-  (** Include argument information. *)
-
   val buffer_type_info : t
-  (** Include buffer type information. *)
 
   val fail_on_binary_archive_miss : t
   (** Fail creation if compiled code is not in binary archive. *)
@@ -214,11 +210,7 @@ module CompileOptions : sig
     type t [@@deriving sexp_of] (* Uses ullong *)
 
     val executable : t
-    (** An executable library. *)
-
     val dynamic : t
-    (** A dynamic library. *)
-
     val to_ulong : t -> Unsigned.ulong
   end
 
@@ -257,8 +249,6 @@ module CompileOptions : sig
   end
 
   val set_fast_math_enabled : t -> bool -> unit
-  (** Enables or disables fast math optimizations. *)
-
   val get_fast_math_enabled : t -> bool
 
   val set_math_mode : t -> MathMode.t -> unit
@@ -270,35 +260,20 @@ module CompileOptions : sig
   (** Sets the default math functions for single precision floating-point. *)
 
   val get_math_floating_point_functions : t -> MathFloatingPointFunctions.t
-
   val set_enable_logging : t -> bool -> unit
-  (** Enables or disables logging in shaders. *)
-
   val get_enable_logging : t -> bool
-
   val set_max_total_threads_per_threadgroup : t -> int -> unit
-  (** Sets the maximum total threads per threadgroup. *)
-
   val get_max_total_threads_per_threadgroup : t -> int
-
   val set_language_version : t -> LanguageVersion.t -> unit
-  (** Sets the Metal Shading Language version. *)
-
   val get_language_version : t -> LanguageVersion.t
-
   val set_library_type : t -> LibraryType.t -> unit
-  (** Sets the library type. *)
-
   val get_library_type : t -> LibraryType.t
 
   val set_install_name : t -> string -> unit
   (** Sets the install name for dynamic libraries. *)
 
   val get_install_name : t -> string
-
   val set_optimization_level : t -> OptimizationLevel.t -> unit
-  (** Sets the optimization level. *)
-
   val get_optimization_level : t -> OptimizationLevel.t
 end
 
@@ -310,10 +285,7 @@ module Resource : sig
   type t [@@deriving sexp_of]
 
   val set_label : t -> string -> unit
-  (** Sets the resource's label. *)
-
   val get_label : t -> string
-  (** Gets the resource's label. *)
 
   val get_device : t -> Device.t
   (** Gets the device the resource belongs to. *)
@@ -360,9 +332,7 @@ module Resource : sig
   end
 
   val get_hazard_tracking_mode : t -> HazardTrackingMode.t
-
   val get_resource_options : t -> ResourceOptions.t
-  (** Gets the combined resource options. *)
 
   val get_heap : t -> Objc.object_t
   (** Gets the heap the resource was allocated from (if any). Result type needs Heap module. *)
@@ -371,13 +341,11 @@ module Resource : sig
   (** Gets the offset within the heap (if placed). *)
 
   val get_allocated_size : t -> int
-  (** Gets the size allocated for the resource. *)
 
   val make_aliasable : t -> unit
   (** Allows future heap allocations to alias this resource's memory. *)
 
   val is_aliasable : t -> bool
-  (** Checks if the resource can be aliased. *)
 end
 
 (** Represents a block of untyped memory accessible by the GPU. See
@@ -386,9 +354,7 @@ module Buffer : sig
   type t [@@deriving sexp_of]
 
   val super : t -> Resource.t
-
   val on_device : Device.t -> length:int -> ResourceOptions.t -> t
-  (** Creates a new buffer on the specified device. *)
 
   val on_device_with_bytes :
     Device.t -> bytes:unit Ctypes.ptr -> length:int -> ResourceOptions.t -> t
@@ -401,8 +367,7 @@ module Buffer : sig
     ?deallocator:(unit -> unit) ->
     ResourceOptions.t ->
     t
-  (** Creates a buffer that wraps existing memory without copying. Optionally takes a deallocator
-      block. *)
+  (** Creates a buffer that wraps existing memory without copying. *)
 
   val length : t -> int
   (** Gets the length of the buffer in bytes. *)
@@ -416,10 +381,7 @@ module Buffer : sig
       shared buffers (NOTE: validation layer will report an error). *)
 
   val add_debug_marker : t -> marker:string -> Range.t -> unit
-  (** Adds a debug marker to a range of the buffer. *)
-
   val remove_all_debug_markers : t -> unit
-  (** Removes all debug markers from the buffer. *)
 
   val get_gpu_address : t -> Unsigned.ULLong.t
   (** Gets the GPU virtual address of the buffer. *)
@@ -445,9 +407,7 @@ module Function : sig
   val set_label : t -> string -> unit
   val get_label : t -> string
   val get_device : t -> Device.t
-
   val get_function_type : t -> FunctionType.t
-  (** Gets the type of the function. *)
 
   val get_name : t -> string
   (** Gets the name of the function as defined in the source code. *)
@@ -474,16 +434,15 @@ module Library : sig
     Device.t -> unit Ctypes.ptr -> t (* dispatch_data_t is tricky, using unit ptr *)
   (** Creates a library from pre-compiled data (e.g., a .metallib file loaded into memory).
       Defensively, the returned value holds on to the data pointer. See
-      {{:https://developer.apple.com/documentation/metal/mtldevice/1433377-newlibrarywithdata}
+      {{:https://developer.apple.com/documentation/metal/mtldevice/makelibrary(data:)?language=objc}
        newLibraryWithData:error:}. *)
 
   val new_function_with_name : t -> string -> Function.t
   (** Retrieves a specific function from the library by name. See
-      {{:https://developer.apple.com/documentation/metal/mtllibrary/1433413-newfunctionwithname}
+      {{:https://developer.apple.com/documentation/metal/mtllibrary/makefunction(name:)?language=objc}
        newFunctionWithName:}. *)
 
   val get_function_names : t -> string array
-  (** Gets the names of all functions contained in the library. *)
 
   val get_library_type : t -> CompileOptions.LibraryType.t
   (** Gets the type of the library (Executable or Dynamic). *)
@@ -501,19 +460,11 @@ module ComputePipelineDescriptor : sig
   type t [@@deriving sexp_of]
 
   val create : unit -> t
-  (** Creates a new descriptor with default values. *)
-
   val set_label : t -> string -> unit
   val get_label : t -> string
-
   val set_compute_function : t -> Function.t -> unit
-  (** Sets the compute function (kernel) for the pipeline. *)
-
   val get_compute_function : t -> Function.t
-
   val set_support_indirect_command_buffers : t -> bool -> unit
-  (** Enables the pipeline to be used with indirect command buffers. *)
-
   val get_support_indirect_command_buffers : t -> bool
 end
 
@@ -530,7 +481,7 @@ module ComputePipelineState : sig
     Function.t ->
     t * Objc.object_t Ctypes.ptr (* Returns PSO and optional reflection object *)
   (** Creates a pipeline state from a function. See
-      {{:https://developer.apple.com/documentation/metal/mtldevice/1433429-newcomputepipelinestatewithfunc}
+      {{:https://developer.apple.com/documentation/metal/mtldevice/makecomputepipelinestate(function:options:reflection:)?language=objc}
        newComputePipelineStateWithFunction:options:reflection:error:}. *)
 
   val on_device_with_descriptor :
@@ -540,14 +491,12 @@ module ComputePipelineState : sig
     ComputePipelineDescriptor.t ->
     t * Objc.object_t Ctypes.ptr (* Returns PSO and optional reflection object *)
   (** Creates a pipeline state from a descriptor. See
-      {{:https://developer.apple.com/documentation/metal/mtldevice/1433427-newcomputepipelinestatewithdesc}
+      {{:https://developer.apple.com/documentation/metal/mtldevice/makecomputepipelinestate(descriptor:options:reflection:)?language=objc}
        newComputePipelineStateWithDescriptor:options:reflection:error:}. *)
 
   val get_label : t -> string
   val get_device : t -> Device.t
-
   val get_max_total_threads_per_threadgroup : t -> int
-  (** Gets the maximum number of threads allowed in a threadgroup for this pipeline. *)
 
   val get_thread_execution_width : t -> int
   (** Gets the execution width (SIMD group size) for this pipeline. *)
@@ -567,7 +516,6 @@ module CommandQueue : sig
   type t [@@deriving sexp_of]
 
   val on_device : Device.t -> t
-  (** Creates a default command queue on the specified device. *)
 
   val on_device_with_max_buffer_count : Device.t -> int -> t
   (** Creates a command queue with a specific maximum number of uncompleted command buffers. *)
@@ -595,19 +543,15 @@ module CommandBuffer : sig
   val set_label : t -> string -> unit
   val get_label : t -> string
   val get_device : t -> Device.t
-
   val get_command_queue : t -> CommandQueue.t
-  (** Gets the command queue this buffer belongs to. *)
 
   val get_retained_references : t -> bool
   (** Checks if the buffer retains references to its resources. *)
 
   val on_queue : CommandQueue.t -> t
-  (** Creates a new command buffer associated with this queue. Returns CommandBuffer.t *)
 
   val on_queue_with_unretained_references : CommandQueue.t -> t
-  (** Creates a command buffer that does not retain references to its resources. Returns
-      CommandBuffer.t *)
+  (** Creates a command buffer that does not retain references to its resources. *)
 
   val enqueue : t -> unit
   (** Adds the command buffer to the end of the command queue. *)
@@ -639,9 +583,7 @@ module CommandBuffer : sig
   end
 
   val get_status : t -> Status.t
-  (** Gets the current status of the command buffer. *)
 
-  (* TODO: return error as an error type *)
   val get_error : t -> string option
   (** Gets the error object if the status is Error, otherwise None. *)
 
@@ -652,16 +594,9 @@ module CommandBuffer : sig
   (** Gets the host time (seconds) when the GPU finished executing the buffer. *)
 
   val encode_wait_for_event : t -> Event.t -> Unsigned.ULLong.t -> unit
-  (** Encodes a command to wait for an event. *)
-
   val encode_signal_event : t -> Event.t -> Unsigned.ULLong.t -> unit
-  (** Encodes a command to signal an event. *)
-
   val push_debug_group : t -> string -> unit
-  (** Pushes a debug group label onto the command buffer's stack. *)
-
   val pop_debug_group : t -> unit
-  (** Pops the latest debug group label from the stack. *)
 end
 
 (** Base protocol for objects that encode commands into a command buffer. See
@@ -672,18 +607,10 @@ module CommandEncoder : sig
   val set_label : t -> string -> unit
   val get_label : t -> string
   val get_device : t -> Device.t
-
   val end_encoding : t -> unit
-  (** Declares that encoding is complete for this encoder. *)
-
   val insert_debug_signpost : t -> string -> unit
-  (** Inserts a debug label into the command stream. *)
-
   val push_debug_group : t -> string -> unit
-  (** Pushes a debug group label onto the encoder's stack. *)
-
   val pop_debug_group : t -> unit
-  (** Pops the latest debug group label from the stack. *)
 end
 
 (** Usage flags for resources within a command encoder. See
@@ -720,11 +647,7 @@ module IndirectCommandBufferDescriptor : sig
   type t [@@deriving sexp_of]
 
   val create : unit -> t
-  (** Creates a new descriptor. *)
-
   val set_command_types : t -> IndirectCommandType.t -> unit
-  (** Sets the types of commands the buffer will contain. *)
-
   val get_command_types : t -> IndirectCommandType.t
 
   val set_inherit_pipeline_state : t -> bool -> unit
@@ -750,7 +673,6 @@ module IndirectComputeCommand : sig
   type t [@@deriving sexp_of]
 
   val set_compute_pipeline_state : t -> ComputePipelineState.t -> unit
-  (** Sets the compute pipeline state for the command. *)
 
   val set_kernel_buffer : t -> ?offset:int -> index:int -> Buffer.t -> unit
   (** Sets a buffer argument for the command. *)
@@ -760,7 +682,6 @@ module IndirectComputeCommand : sig
   (** Specifies dispatch dimensions for the command. *)
 
   val set_barrier : t -> unit
-  (** Encodes a barrier into the command stream. *)
 end
 
 (** A buffer containing pre-encoded commands that can be executed efficiently by the GPU. See
@@ -780,10 +701,7 @@ module IndirectCommandBuffer : sig
        newIndirectCommandBufferWithDescriptor:maxCommandCount:options:}. *)
 
   val get_size : t -> int
-  (** Gets the allocated size of the buffer. *)
-
   val indirect_compute_command_at_index : t -> int -> IndirectComputeCommand.t
-  (** Gets an object representing the compute command at a specific index. *)
 
   val reset_with_range : t -> Range.t -> unit
   (** Resets a range of commands in the buffer, making them no-ops. *)
@@ -808,19 +726,12 @@ module ComputeCommandEncoder : sig
   end
 
   val on_buffer : CommandBuffer.t -> t
-  (** Creates a compute command encoder for this buffer. Returns ComputeCommandEncoder.t *)
-
   val on_buffer_with_dispatch_type : CommandBuffer.t -> DispatchType.t -> t
-  (** Creates a compute command encoder with a specified dispatch type. Returns
-      ComputeCommandEncoder.t *)
-
   val end_encoding : t -> unit
   val insert_debug_signpost : t -> string -> unit
   val push_debug_group : t -> string -> unit
   val pop_debug_group : t -> unit
-
   val set_compute_pipeline_state : t -> ComputePipelineState.t -> unit
-  (** Sets the active compute pipeline state. *)
 
   val set_buffer : t -> ?offset:int -> index:int -> Buffer.t -> unit
   (** Sets a buffer argument for the compute function. *)
@@ -845,7 +756,6 @@ module ComputeCommandEncoder : sig
   (** Declares that multiple resources will be used by the following commands. *)
 
   val execute_commands_in_buffer : t -> IndirectCommandBuffer.t -> Range.t -> unit
-  (** Executes commands from an indirect command buffer. Requires IndirectCommandBuffer.t *)
 end
 
 (** An object used for fine-grained resource synchronization within a command encoder. See
@@ -854,8 +764,6 @@ module Fence : sig
   type t [@@deriving sexp_of]
 
   val on_device : Device.t -> t
-  (** Creates a new fence on the specified device. *)
-
   val get_device : t -> Device.t
   val set_label : t -> string -> unit
   val get_label : t -> string
@@ -874,9 +782,7 @@ module BlitCommandEncoder : sig
   val insert_debug_signpost : t -> string -> unit
   val push_debug_group : t -> string -> unit
   val pop_debug_group : t -> unit
-
   val on_buffer : CommandBuffer.t -> t
-  (** Creates a blit command encoder for the given buffer. *)
 
   val copy_from_buffer :
     t ->
@@ -886,7 +792,6 @@ module BlitCommandEncoder : sig
     destination_offset:int ->
     size:int ->
     unit
-  (** Copies data between buffers. *)
 
   val fill_buffer : t -> Buffer.t -> Range.t -> value:int -> unit
   (** Fills a buffer range with a {i byte} value (0-255). *)
@@ -895,10 +800,7 @@ module BlitCommandEncoder : sig
   (** Synchronizes a managed resource between CPU and GPU. *)
 
   val update_fence : t -> Fence.t -> unit
-  (** Updates a fence after commands encoded so far. Requires Fence.t *)
-
   val wait_for_fence : t -> Fence.t -> unit
-  (** Waits for a fence before executing subsequent commands. Requires Fence.t *)
 end
 
 (** {2 Synchronization} *)
@@ -932,10 +834,7 @@ module SharedEvent : sig
   end
 
   val super : t -> Event.t
-
   val on_device : Device.t -> t
-  (** Creates a new shared event on the specified device. *)
-
   val get_device : t -> Device.t
   val set_label : t -> string -> unit
   val get_label : t -> string
@@ -944,7 +843,6 @@ module SharedEvent : sig
   (** Sets the event's signaled value from the CPU. *)
 
   val get_signaled_value : t -> Unsigned.ULLong.t
-  (** Gets the event's current signaled value. *)
 
   val notify_listener :
     t ->
@@ -954,19 +852,19 @@ module SharedEvent : sig
     unit
   (** Schedules a notification handler block to be called when the event's signaled value reaches or
       exceeds the specified value. See
-      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2966580-notifylistener?language=objc}
+      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/notify(_:atvalue:block:)?language=objc}
        notifyListener:atValue:block:}. *)
 
   val new_shared_event_handle : t -> SharedEventHandle.t
   (** Creates a serializable handle for this shared event. See
-      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/2966579-newsharedeventhandle?language=objc}
+      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/makesharedeventhandle()?language=objc}
        newSharedEventHandle}. *)
 
   val wait_until_signaled_value :
     t -> value:Unsigned.ULLong.t -> timeout_ms:Unsigned.ULLong.t -> bool
   (** Synchronously waits until the signaled value reaches or exceeds the target value, or the
       timeout elapses. Returns [true] if the value was reached, [false] on timeout. See
-      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/3553987-waituntilsignaledvalue?language=objc}
+      {{:https://developer.apple.com/documentation/metal/mtlsharedevent/wait(untilsignaledvalue:timeoutms:)?language=objc}
        waitUntilSignaledValue:timeoutMS:}. *)
 end
 
