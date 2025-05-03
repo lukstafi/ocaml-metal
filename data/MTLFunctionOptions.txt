@@ -1,0 +1,19 @@
+Source: https://developer.apple.com/documentation/metal/mtlfunctionoptions/
+Enumeration
+MTLFunctionOptions
+Options that define how Metal creates the function object.
+typedef enum MTLFunctionOptions : NSUInteger {
+    ...
+} MTLFunctionOptions;
+Topics
+Function Option Values
+MTLFunctionOptionNone
+An option that specifies that Metal should use its default behavior when creating the function object.
+MTLFunctionOptionCompileToBinary
+An option that tells Metal to compile the function to a binary format for dynamic linking.
+Type Properties
+MTLFunctionOptionFailOnBinaryArchiveMiss
+MTLFunctionOptionStoreFunctionInMetalPipelinesScript
+MTLFunctionOptionStoreFunctionInMetalScript
+Deprecated
+Current page is MTLFunctionOptions

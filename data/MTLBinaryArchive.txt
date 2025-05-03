@@ -1,0 +1,39 @@
+Source: https://developer.apple.com/documentation/metal/mtlbinaryarchive/
+Protocol
+MTLBinaryArchive
+A container for pipeline state descriptors and their associated compiled shader code.
+@protocol MTLBinaryArchive
+Topics
+Identifying the Archive
+device
+The Metal device object that created the binary archive.
+Required
+label
+A string that identifies the library.
+Required
+Adding Pipeline Descriptors
+- addComputePipelineFunctionsWithDescriptor:error:
+Adds a description of a compute pipeline to the archive.
+Required
+- addRenderPipelineFunctionsWithDescriptor:error:
+Adds a description of a render pipeline to the archive.
+Required
+- addTileRenderPipelineFunctionsWithDescriptor:error:
+Adds a description of a tile renderer pipeline to the archive.
+Required
+- addFunctionWithDescriptor:library:error:
+Adds a description of a function to the archive.
+Required
+Serializing Archives
+- serializeToURL:error:
+Writes the contents of the archive to a file.
+Required
+Instance Methods
+- addLibraryWithDescriptor:error:
+Required
+- addMeshRenderPipelineFunctionsWithDescriptor:error:
+Required
+Relationships
+Inherits From
+NSObject
+Current page is MTLBinaryArchive

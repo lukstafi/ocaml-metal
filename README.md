@@ -144,6 +144,14 @@ But note the error: `-[MTLGPUDebugDevice newIndirectCommandBufferWithDescriptor:
 - Shader compilation and execution
 - Resource and memory management
 
+### Currently missing: upcoming features
+
+The following classes or protocols are not yet bound, but support is planned in upcoming releases.
+
+- `MTLHeap`
+- `MTLFunctionOptions`
+- `MTLBinaryArchive`, `MTLBinaryArchiveDescriptor`
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
