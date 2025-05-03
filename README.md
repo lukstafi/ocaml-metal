@@ -86,7 +86,7 @@ let kernel_source = {|
                            device const float *x [[buffer(1)]],
                            device const float *a [[buffer(2)]],
                            uint index [[thread_position_in_grid]]) {
-    y[index] = (*a) * x[index] + y[index];
+    y[index] = ( *a) * x[index] + y[index];
   }
 |}
 
