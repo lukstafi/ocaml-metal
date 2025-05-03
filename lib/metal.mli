@@ -7,28 +7,8 @@ module Objc : sig
     self:object_t -> cmd:objc_selector Ctypes.structure Ctypes_static.ptr -> typ:'a fn -> 'a
 end
 
-val nil_ptr : Objc.object_t Ctypes.ptr
-(** A null pointer suitable for Objective-C objects. *)
 
-val nil : Objc.object_t
-(** The null Objective-C object. *)
-
-val ocaml_string_from_nsstring : Objc.object_t -> string
-(** Converts an NSString object to an OCaml string. *)
-
-val from_nsarray : Objc.object_t -> Objc.object_t array
-(** Converts an NSArray object containing Objective-C objects into an OCaml array of
-    [Objc.object_t]. *)
-
-val get_error_description : Objc.object_t -> string
-(** Returns the localized description of an NSError object, or "No error" / "Unknown error" if nil
-    or descriptionless. *)
-
-val check_error : string -> Objc.object_t Ctypes.ptr -> unit
-(** Checks if the pointer pointed to by `err_ptr` contains a non-nil NSError. If so, raises Failure
-    with the error description. *)
-
-(* === Basic Structures === *)
+(** {2 Basic Structures} *)
 
 (** Represents the dimensions of a grid, region, or threadgroup. See
     {{:https://developer.apple.com/documentation/metal/mtlsize} MTLSize}. *)
@@ -119,7 +99,7 @@ module Device : sig
   (** Fetches the static compute-relevant attributes of the device. *)
 end
 
-(* === Resource Configuration === *)
+(** {2 Resource Configuration} *)
 
 (** Options for configuring Metal resources like buffers and textures. See
     {{:https://developer.apple.com/documentation/metal/mtlresourceoptions} MTLResourceOptions}. *)
@@ -322,7 +302,7 @@ module CompileOptions : sig
   val get_optimization_level : t -> OptimizationLevel.t
 end
 
-(* === Resources === *)
+(** {2 Resources} *)
 
 (** Common interface for Metal resources like buffers and textures. See
     {{:https://developer.apple.com/documentation/metal/mtlresource} MTLResource}. *)
@@ -445,7 +425,7 @@ module Buffer : sig
   (** Gets the GPU virtual address of the buffer. *)
 end
 
-(* === Libraries and Functions === *)
+(** {2 Libraries and Functions} *)
 
 (** Identifies the type of a Metal function. See
     {{:https://developer.apple.com/documentation/metal/mtlfunctiontype} MTLFunctionType}. *)
@@ -512,7 +492,7 @@ module Library : sig
   (** Gets the install name if it's a dynamic library. *)
 end
 
-(* === Compute Pipeline === *)
+(** {2 Compute Pipeline} *)
 
 (** Describes the configuration for creating a compute pipeline state. See
     {{:https://developer.apple.com/documentation/metal/mtlcomputepipelinedescriptor}
@@ -579,7 +559,7 @@ module ComputePipelineState : sig
   (** Checks if the pipeline supports indirect command buffers. *)
 end
 
-(* === Command Infrastructure === *)
+(** {2 Command Infrastructure} *)
 
 (** A queue for submitting command buffers to a device. See
     {{:https://developer.apple.com/documentation/metal/mtlcommandqueue} MTLCommandQueue}. *)
@@ -716,7 +696,7 @@ module ResourceUsage : sig
   val ( + ) : t -> t -> t
 end
 
-(* === Indirect Command Buffers === *)
+(** {2 Indirect Command Buffers} *)
 
 (** Types of commands that can be encoded into an indirect command buffer. See
     {{:https://developer.apple.com/documentation/metal/mtlindirectcommandtype}
@@ -921,7 +901,7 @@ module BlitCommandEncoder : sig
   (** Waits for a fence before executing subsequent commands. Requires Fence.t *)
 end
 
-(* === Synchronization === *)
+(** {2 Synchronization} *)
 
 (** An object used for GPU-GPU or CPU-GPU synchronization, potentially across multiple devices or
     processes. See
@@ -990,7 +970,7 @@ module SharedEvent : sig
        waitUntilSignaledValue:timeoutMS:}. *)
 end
 
-(* === Dynamic Library Placeholder === *)
+(** {2 Dynamic Library Placeholder} *)
 
 (** Represents a dynamically linkable Metal library. Bindings are complex and omitted for now. See
     {{:https://developer.apple.com/documentation/metal/mtldynamiclibrary} MTLDynamicLibrary}. *)
