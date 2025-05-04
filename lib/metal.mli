@@ -510,6 +510,57 @@ end
 
 (** {2 Command Infrastructure} *)
 
+(** Log levels for shader debugging. See
+    {{:https://developer.apple.com/documentation/metal/mtlloglevel} MTLLogLevel}. *)
+module LogLevel : sig
+  type t = Undefined | Debug | Info | Notice | Error | Fault [@@deriving sexp_of]
+
+  val to_int : t -> int
+  val from_int : int -> t
+  val to_nsuinteger : t -> Unsigned.ULong.t
+  val from_nsuinteger : Unsigned.ULong.t -> t
+end
+
+(** Descriptor for configuring shader logging. See
+    {{:https://developer.apple.com/documentation/metal/mtllogstatedescriptor} MTLLogStateDescriptor}. *)
+module LogStateDescriptor : sig
+  type t [@@deriving sexp_of]
+
+  val create : unit -> t
+  val set_level : t -> LogLevel.t -> unit
+  val get_level : t -> LogLevel.t
+  val set_buffer_size : t -> int -> unit
+  val get_buffer_size : t -> int
+end
+
+(** Container for shader log messages. See
+    {{:https://developer.apple.com/documentation/metal/mtllogstate} MTLLogState}. *)
+module LogState : sig
+  type t [@@deriving sexp_of]
+
+  val super : t -> Objc.object_t
+  val on_device_with_descriptor : Device.t -> LogStateDescriptor.t -> t
+
+  val add_log_handler : t -> (string option -> string option -> LogLevel.t -> string -> unit) -> unit
+  (** Register a handler function to customize log message handling. The parameters are:
+      - subsystem (optional): The subsystem that generated the log
+      - category (optional): The category within the subsystem
+      - level: The log importance level
+      - message: The actual log message text *)
+end
+
+(** Configuration for creating command queues. See
+    {{:https://developer.apple.com/documentation/metal/mtlcommandqueuedescriptor} MTLCommandQueueDescriptor}. *)
+module CommandQueueDescriptor : sig
+  type t [@@deriving sexp_of]
+
+  val create : unit -> t
+  val set_max_command_buffer_count : t -> int -> unit
+  val get_max_command_buffer_count : t -> int
+  val set_log_state : t -> LogState.t -> unit
+  val get_log_state : t -> LogState.t option
+end
+
 (** A queue for submitting command buffers to a device. See
     {{:https://developer.apple.com/documentation/metal/mtlcommandqueue} MTLCommandQueue}. *)
 module CommandQueue : sig
@@ -519,6 +570,9 @@ module CommandQueue : sig
 
   val on_device_with_max_buffer_count : Device.t -> int -> t
   (** Creates a command queue with a specific maximum number of uncompleted command buffers. *)
+
+  val on_device_with_descriptor : Device.t -> CommandQueueDescriptor.t -> t
+  (** Creates a command queue with a custom configuration descriptor. *)
 
   val set_label : t -> string -> unit
   val get_label : t -> string

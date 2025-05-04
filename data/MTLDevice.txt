@@ -2,11 +2,6 @@ Source: https://developer.apple.com/documentation/metal/mtldevice?language=objc
 Protocol
 MTLDevice
 The main Metal interface to a GPU that apps use to draw graphics and run computations in parallel.
-iOS 8.0+
-Mac Catalyst 13.1+
-macOS 10.11+
-tvOS 9.0+
-visionOS 1.0+
 @protocol MTLDevice
 Overview
 You can get the default MTLDevice at runtime by calling MTLCreateSystemDefaultDevice (see Getting the Default GPU). Each Metal device instance represents a GPU and is the main starting point for your app’s interaction with it. With a Metal device instance, you can inspect a GPU’s features and capabilities (see Device Inspection) and create subsidiary type instances with its factory methods.

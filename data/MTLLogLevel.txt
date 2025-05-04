@@ -1,0 +1,27 @@
+Source: https://developer.apple.com/documentation/metal/mtlloglevel?language=objc
+Enumeration
+MTLLogLevel
+The supported log levels for shader logging.
+iOS 18.0+
+Mac Catalyst 18.0+
+macOS 15.0+
+tvOS 18.0+
+visionOS 2.0+
+typedef enum MTLLogLevel : NSInteger {
+    ...
+} MTLLogLevel;
+Topics
+Enumeration Cases
+MTLLogLevelDebug
+The log level that captures diagnostic information.
+MTLLogLevelInfo
+The log level that captures additional information.
+MTLLogLevelNotice
+The log level that captures notifications.
+MTLLogLevelError
+The log level that captures error information.
+MTLLogLevelFault
+The log level that captures fault information.
+MTLLogLevelUndefined
+The log level when the log level hasn’t been configured.
+Current page is MTLLogLevel

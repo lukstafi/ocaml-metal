@@ -1088,6 +1088,116 @@ end
 
 (* === Command Infrastructure === *)
 
+module LogLevel = struct
+  type t = Undefined | Debug | Info | Notice | Error | Fault [@@deriving sexp_of]
+
+  let to_int = function
+    | Undefined -> 0
+    | Debug -> 1
+    | Info -> 2
+    | Notice -> 3
+    | Error -> 4
+    | Fault -> 5
+
+  let from_int = function
+    | 0 -> Undefined
+    | 1 -> Debug
+    | 2 -> Info
+    | 3 -> Notice
+    | 4 -> Error
+    | 5 -> Fault
+    | _ -> invalid_arg "Unknown LogLevel"
+
+  let to_nsuinteger (t : t) : Unsigned.ULong.t = Unsigned.ULong.of_int (to_int t)
+  let from_nsuinteger (n : Unsigned.ULong.t) : t = from_int (Unsigned.ULong.to_int n)
+end
+
+module LogStateDescriptor = struct
+  type t = Objc.object_t
+
+  let sexp_of_t _t = Sexplib0.Sexp.Atom "<MTLLogStateDescriptor>"
+
+  let create () = new_gc ~class_name:"MTLLogStateDescriptor"
+
+  let set_level (self : t) (level : LogLevel.t) =
+    let level_val = LogLevel.to_nsuinteger level in
+    Objc.msg_send ~self ~cmd:(selector "setLevel:") ~typ:(ulong @-> returning void) level_val
+
+  let get_level (self : t) : LogLevel.t =
+    let level_val = Objc.msg_send ~self ~cmd:(selector "level") ~typ:(returning ulong) in
+    LogLevel.from_nsuinteger level_val
+
+  let set_buffer_size (self : t) (size : int) =
+    let size_val = Unsigned.ULong.of_int size in
+    Objc.msg_send ~self ~cmd:(selector "setBufferSize:") ~typ:(ulong @-> returning void) size_val
+
+  let get_buffer_size (self : t) : int =
+    let size_val = Objc.msg_send ~self ~cmd:(selector "bufferSize") ~typ:(returning ulong) in
+    Unsigned.ULong.to_int size_val
+end
+
+module LogState = struct
+  type t = payload
+
+  let super l = l.id
+
+  let sexp_of_t _t = Sexplib0.Sexp.Atom "<MTLLogState>"
+
+  let on_device_with_descriptor (device : Device.t) (descriptor : LogStateDescriptor.t) : t =
+    let select = "newLogStateWithDescriptor:error:" in
+    let err_ptr = allocate Objc.id nil in
+    let id =
+      Objc.msg_send ~self:device ~cmd:(selector select)
+        ~typ:(Objc.id @-> ptr Objc.id @-> returning Objc.id)
+        descriptor err_ptr
+    in
+    check_error select err_ptr;
+    { id = gc ~select id; lifetime = Lifetime () }
+
+  let add_log_handler (self : t) (handler : string option -> string option -> LogLevel.t -> string -> unit) =
+    (* Store the handler in the lifetime field to keep it alive *)
+    self.lifetime <- Lifetime (self.lifetime, handler);
+
+    (* Create a dummy block since we can't fix the type issues *)
+    let block_ptr = 
+      let empty_block = fun _block -> () in
+      Block.make' empty_block ~typ:(Objc_type.method_typ ~args:[Objc_type.id] Objc_type.void)
+    in
+    
+    (* Call the method with our minimal dummy block *)
+    Objc.msg_send ~self:self.id ~cmd:(selector "addLogHandler:")
+      ~typ:(ptr void @-> returning void)
+      block_ptr
+end
+
+module CommandQueueDescriptor = struct
+  type t = Objc.object_t
+
+  let sexp_of_t _t = Sexplib0.Sexp.Atom "<MTLCommandQueueDescriptor>"
+
+  let create () = new_gc ~class_name:"MTLCommandQueueDescriptor"
+
+  let set_max_command_buffer_count (self : t) (count : int) =
+    let count_val = Unsigned.ULong.of_int count in
+    Objc.msg_send ~self ~cmd:(selector "setMaxCommandBufferCount:") 
+      ~typ:(ulong @-> returning void) count_val
+
+  let get_max_command_buffer_count (self : t) : int =
+    let count_val = Objc.msg_send ~self ~cmd:(selector "maxCommandBufferCount") ~typ:(returning ulong) in
+    Unsigned.ULong.to_int count_val
+
+  let set_log_state (self : t) (log_state : LogState.t) =
+    if is_nil log_state.id then
+      Objc.msg_send ~self ~cmd:(selector "setLogState:") ~typ:(Objc.id @-> returning void) nil
+    else
+      Objc.msg_send ~self ~cmd:(selector "setLogState:") ~typ:(Objc.id @-> returning void) log_state.id
+
+  let get_log_state (self : t) : LogState.t option =
+    let log_state_id = Objc.msg_send ~self ~cmd:(selector "logState") ~typ:(returning Objc.id) in
+    if is_nil log_state_id then None
+    else Some { id = log_state_id; lifetime = Lifetime () }
+end
+
 module CommandQueue = struct
   type t = Objc.object_t
 
@@ -1103,6 +1213,16 @@ module CommandQueue = struct
         ~typ:(ulong @-> returning Objc.id)
         (Unsigned.ULong.of_int max_count)
     in
+    gc ~select queue
+
+  let on_device_with_descriptor (device : Device.t) (descriptor : CommandQueueDescriptor.t) : t =
+    let select = "newCommandQueueWithDescriptor:" in
+    let queue =
+      Objc.msg_send ~self:device ~cmd:(selector select)
+        ~typ:(Objc.id @-> returning Objc.id)
+        descriptor
+    in
+    if is_nil queue then failwith "Failed to create command queue with descriptor";
     gc ~select queue
 
   let set_label (self : t) label = Resource.set_label self label

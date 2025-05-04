@@ -1,0 +1,16 @@
+Source: https://developer.apple.com/documentation/metal/mtlcommandqueuedescriptor?language=objc
+MTLCommandQueueDescriptor
+A configuration that customizes the behavior for a new command queue.
+@interface MTLCommandQueueDescriptor : NSObject
+Topics
+Instance Properties
+logState
+The shader logging configuration that the command queue uses.
+maxCommandBufferCount
+An integer that sets the maximum number of uncompleted command buffers the queue can allow.
+Relationships
+Inherits From
+NSObject
+Conforms To
+NSCopying
+Current page is MTLCommandQueueDescriptor
