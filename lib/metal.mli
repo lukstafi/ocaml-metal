@@ -508,58 +508,91 @@ module ComputePipelineState : sig
   (** Checks if the pipeline supports indirect command buffers. *)
 end
 
-(** {2 Command Infrastructure} *)
-
 (** Log levels for shader debugging. See
     {{:https://developer.apple.com/documentation/metal/mtlloglevel} MTLLogLevel}. *)
-module LogLevel : sig
+    module LogLevel : sig
+  (** Log levels for shader logging. See
+      {{:https://developer.apple.com/documentation/metal/mtlloglevel} MTLLogLevel}. *)
   type t = Undefined | Debug | Info | Notice | Error | Fault [@@deriving sexp_of]
 
-  val to_int : t -> int
-  val from_int : int -> t
-  val to_nsuinteger : t -> Unsigned.ULong.t
-  val from_nsuinteger : Unsigned.ULong.t -> t
+  val from_long : Signed.long -> t
+  val to_long : t -> Signed.long
 end
 
 (** Descriptor for configuring shader logging. See
     {{:https://developer.apple.com/documentation/metal/mtllogstatedescriptor} MTLLogStateDescriptor}. *)
-module LogStateDescriptor : sig
+    module LogStateDescriptor : sig
   type t [@@deriving sexp_of]
+  (** Configuration for creating a log state object. See
+      {{:https://developer.apple.com/documentation/metal/mtllogstatedescriptor}
+       MTLLogStateDescriptor}. *)
 
   val create : unit -> t
+  (** Creates a new log state descriptor with default values. *)
+
   val set_level : t -> LogLevel.t -> unit
+  (** Sets the minimum log level to capture. *)
+
   val get_level : t -> LogLevel.t
+  (** Gets the minimum log level to capture. *)
+
   val set_buffer_size : t -> int -> unit
+  (** Sets the size (in bytes) of the internal buffer for log messages. Minimum 1KB. *)
+
   val get_buffer_size : t -> int
+  (** Gets the size (in bytes) of the internal buffer for log messages. *)
 end
 
 (** Container for shader log messages. See
     {{:https://developer.apple.com/documentation/metal/mtllogstate} MTLLogState}. *)
-module LogState : sig
+    module LogState : sig
   type t [@@deriving sexp_of]
+  (** A container for shader log messages. See
+      {{:https://developer.apple.com/documentation/metal/mtllogstate} MTLLogState}. *)
 
-  val super : t -> Objc.object_t
   val on_device_with_descriptor : Device.t -> LogStateDescriptor.t -> t
+  (** Creates a log state object using the specified descriptor. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/4379071-newlogstatewithdescriptor}
+       newLogStateWithDescriptor:error:}. *)
 
-  val add_log_handler : t -> (string option -> string option -> LogLevel.t -> string -> unit) -> unit
-  (** Register a handler function to customize log message handling. The parameters are:
-      - subsystem (optional): The subsystem that generated the log
-      - category (optional): The category within the subsystem
-      - level: The log importance level
-      - message: The actual log message text *)
+  val add_log_handler :
+    t ->
+    (sub_system:string option ->
+    category:string option ->
+    level:LogLevel.t ->
+    message:string ->
+    unit) ->
+    unit
+  (** Adds a handler block to process log messages. See
+      {{:https://developer.apple.com/documentation/metal/mtllogstate/4379067-addloghandler}
+       addLogHandler:}. *)
 end
 
 (** Configuration for creating command queues. See
     {{:https://developer.apple.com/documentation/metal/mtlcommandqueuedescriptor} MTLCommandQueueDescriptor}. *)
-module CommandQueueDescriptor : sig
+    module CommandQueueDescriptor : sig
   type t [@@deriving sexp_of]
+  (** Configuration for creating a command queue. See
+      {{:https://developer.apple.com/documentation/metal/mtlcommandqueuedescriptor}
+       MTLCommandQueueDescriptor}. *)
 
   val create : unit -> t
+  (** Creates a new command queue descriptor with default values. *)
+
   val set_max_command_buffer_count : t -> int -> unit
+  (** Sets the maximum number of uncompleted command buffers allowed in the queue. *)
+
   val get_max_command_buffer_count : t -> int
-  val set_log_state : t -> LogState.t -> unit
+  (** Gets the maximum number of uncompleted command buffers allowed in the queue. *)
+
+  val set_log_state : t -> LogState.t option -> unit
+  (** Sets the log state object for the command queue (nullable). *)
+
   val get_log_state : t -> LogState.t option
+  (** Gets the log state object for the command queue (nullable). *)
 end
+
+(** {2 Command Infrastructure} *)
 
 (** A queue for submitting command buffers to a device. See
     {{:https://developer.apple.com/documentation/metal/mtlcommandqueue} MTLCommandQueue}. *)
@@ -572,7 +605,9 @@ module CommandQueue : sig
   (** Creates a command queue with a specific maximum number of uncompleted command buffers. *)
 
   val on_device_with_descriptor : Device.t -> CommandQueueDescriptor.t -> t
-  (** Creates a command queue with a custom configuration descriptor. *)
+  (** Creates a command queue using the specified descriptor. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/4379070-newcommandqueuewithdescriptor}
+       newCommandQueueWithDescriptor:}. *)
 
   val set_label : t -> string -> unit
   val get_label : t -> string
