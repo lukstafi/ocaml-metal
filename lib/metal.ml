@@ -1194,52 +1194,43 @@ end
 
 (* Add this module *)
 module CommandQueueDescriptor = struct
-  type t = Objc.object_t
+  type t = payload
 
-  let create () : t = new_gc ~class_name:"MTLCommandQueueDescriptor"
+  let create () : t =
+    { id = new_gc ~class_name:"MTLCommandQueueDescriptor"; lifetime = Lifetime () }
 
   let set_max_command_buffer_count (self : t) (count : int) : unit =
-    Objc.msg_send ~self
+    Objc.msg_send ~self:self.id
       ~cmd:(selector "setMaxCommandBufferCount:")
       ~typ:(ulong @-> returning void)
       (Unsigned.ULong.of_int count)
 
   let get_max_command_buffer_count (self : t) : int =
     let count_val =
-      Objc.msg_send ~self ~cmd:(selector "maxCommandBufferCount") ~typ:(returning ulong)
+      Objc.msg_send ~self:self.id ~cmd:(selector "maxCommandBufferCount") ~typ:(returning ulong)
     in
     Unsigned.ULong.to_int count_val
 
   let set_log_state (self : t) (log_state : LogState.t option) : unit =
-    let log_state_id = match log_state with None -> nil | Some ls -> ls.id in
-    Objc.msg_send ~self ~cmd:(selector "setLogState:")
+    let log_state_id =
+      match log_state with
+      | None -> nil
+      | Some ls ->
+          (* NOTE: This is defensive and might leak a bit of memory if the descriptor is reused. *)
+          self.lifetime <- Lifetime (self.lifetime, ls.lifetime);
+          ls.id
+    in
+    Objc.msg_send ~self:self.id ~cmd:(selector "setLogState:")
       ~typ:(Objc.id @-> returning void)
       log_state_id
 
   (* Returns LogState.t option because the property is nullable *)
   let get_log_state (self : t) : LogState.t option =
-    let log_state_id = Objc.msg_send ~self ~cmd:(selector "logState") ~typ:(returning Objc.id) in
-    if is_nil log_state_id then None
-    (* Assuming LogState.t has a way to wrap an id, or we need a constructor *)
-    (* For now, let's just return None if nil, otherwise Some id, but this needs refinement
-         based on how LogState.t is fully defined or if we need a way to create a LogState.t
-         from an existing id without knowing its lifetime source.
-         Let's assume LogState.t is just id for this getter for simplicity, matching the setter.
-         UPDATE: LogState.t is payload {id; lifetime}, can't directly create one here.
-         Let's return the id and let the caller decide? No, better to return option.
-         We can't construct the payload { id; lifetime } here easily.
-         So, returning `LogState.t option` is problematic.
-         Let's change the signature to return `Objc.id option` for now.
-         Or, we make LogState.t just = Objc.id. Let's do that for simplicity.
-         Revising LogState definition: `type t = Objc.id`. This breaks `add_log_handler` lifetime.
-         Let's stick with payload and make the getter return `Objc.id option`. It's the least bad option.
-         Revising LogState definition again: `type t = payload`. Getter returns `Objc.id option`
-         because we cannot reconstruct the full payload type here. This is an API inconsistency.
-         Let's make LogState.t just Objc.id and deal with handler lifetime later if it bites us.
-         Revising LogState definition: `type t = Objc.id`.
-      *)
-      else Some { id = log_state_id; lifetime = Lifetime () }
-  (* Placeholder lifetime *)
+    let log_state_id =
+      Objc.msg_send ~self:self.id ~cmd:(selector "logState") ~typ:(returning Objc.id)
+    in
+    (* NOTE: This is defensive and might leak a bit of memory if the log state is reused. *)
+    if is_nil log_state_id then None else Some { id = log_state_id; lifetime = self.lifetime }
 
   let sexp_of_t t =
     let max_count = get_max_command_buffer_count t in
