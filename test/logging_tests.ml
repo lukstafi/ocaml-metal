@@ -6,24 +6,31 @@ let%expect_test "Metal shader logging" =
   Printf.printf "Device created successfully\n";
   
   (* Create a simple compute kernel with logging *)
+  let buffer_size = 8 in (* 8 floats, 2 threadgroups of 4 *)
   let kernel_source =
     {|
     #include <metal_stdlib>
+    #include <metal_logging>
     using namespace metal;
     
     kernel void logging_test_kernel(device float *buffer [[buffer(0)]],
                            uint index [[thread_position_in_grid]]) {
+      os_log custom_log("com.custom_log.subsystem", "custom category");
       // Add some Metal shader logging statements
-      metal_printf("Thread %u started processing\n", index);
-      buffer[index] = buffer[index] * 2.0;
-      metal_printf("Thread %u calculation complete: %f\n", index, buffer[index]);
+      custom_log.log("Thread %u started processing\n", index);
+      // os_log_default.log("Thread %u started processing\n", index);
+      if (index < |} ^ string_of_int buffer_size ^ {|) {
+        buffer[index] = buffer[index] * 2.0;
+        custom_log.log("Thread %u calculation complete: %f\n", index, buffer[index]);
+        // os_log_default.log("Thread %u calculation complete: %f\n", index, buffer[index]);
+      }
     }
   |}
   in
 
   (* Create compile options with logging enabled *)
   let compile_options = CompileOptions.init () in
-  CompileOptions.set_language_version compile_options CompileOptions.LanguageVersion.version_2_4;
+  CompileOptions.set_language_version compile_options CompileOptions.LanguageVersion.version_3_2;
   CompileOptions.set_enable_logging compile_options true;
   
   (* Create library and get the function *)
@@ -76,7 +83,6 @@ let%expect_test "Metal shader logging" =
   let queue = CommandQueue.on_device_with_descriptor device queue_desc in
   
   (* Create buffer for computation *)
-  let buffer_size = 4 in (* 4 floats *)
   let buffer = Buffer.on_device device ~length:(buffer_size * sizeof float) ResourceOptions.storage_mode_shared in
   
   (* Initialize buffer with values *)
@@ -96,8 +102,8 @@ let%expect_test "Metal shader logging" =
   
   (* Dispatch threads *)
   ComputeCommandEncoder.dispatch_threadgroups compute_encoder 
-    ~threadgroups_per_grid:{width=buffer_size; height=1; depth=1} 
-    ~threads_per_threadgroup:{width=buffer_size; height=1; depth=1};
+    ~threadgroups_per_grid:{width=buffer_size / 4; height=1; depth=1} 
+    ~threads_per_threadgroup:{width=4; height=1; depth=1};
   
   (* End encoding and commit command buffer *)
   ComputeCommandEncoder.end_encoding compute_encoder;

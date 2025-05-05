@@ -118,7 +118,7 @@ let%expect_test "SAXPY kernel computation test" =
   in
 
   Metal.ComputeCommandEncoder.dispatch_threadgroups compute_encoder
-    ~threadgroups_per_grid:{ width = array_length; height = 1; depth = 1 }
+    ~threadgroups_per_grid:{ width = array_length / thread_execution_width; height = 1; depth = 1 }
     ~threads_per_threadgroup:{ width = thread_execution_width; height = 1; depth = 1 };
   Printf.printf "Kernel dispatched.\n";
 
