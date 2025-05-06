@@ -1,6 +1,6 @@
 (library
  (name metal_tests)
- (modules saxpy basic_tests error_tests advanced_tests coverage_tests logging_tests)
+ (modules saxpy basic_tests error_tests advanced_tests coverage_tests)
  (libraries base stdio metal ctypes.foreign)
  (inline_tests)
  (preprocess
@@ -12,6 +12,17 @@
  (enabled_if
   (= %{env:OCAML_METAL_SKIP_ICB_TEST=false} false))
  (modules advanced_tests_icb)
+ (libraries base stdio metal ctypes.foreign)
+ (inline_tests)
+ (preprocess
+  (pps ppx_expect)))
+
+; CI GPU family does not support MSL 3.2 / logging.
+(library
+ (name metal_tests_logging)
+ (enabled_if
+  (= %{env:OCAML_METAL_SKIP_LOGGING_TEST=false} false))
+ (modules logging_tests)
  (libraries base stdio metal ctypes.foreign)
  (inline_tests)
  (preprocess
