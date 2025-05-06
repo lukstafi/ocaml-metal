@@ -1266,7 +1266,7 @@ module CommandQueue = struct
     let queue =
       Objc.msg_send ~self:device ~cmd:(selector select)
         ~typ:(Objc.id @-> returning Objc.id)
-        descriptor
+        descriptor.id
     in
     gc ~select queue
 
