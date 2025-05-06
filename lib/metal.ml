@@ -28,6 +28,29 @@ module Objc = struct
     Foreign.foreign ~release_runtime_lock:true "objc_msgSend" (id @-> _SEL @-> typ) self cmd
 end
 
+let debug_msg_send = ref None
+
+(** Initialize debug logging to a file with timestamps and selector names. *)
+let init_debug_log_to_file log_file =
+  let log_channel = open_out_gen [ Open_append; Open_creat ] 0o666 log_file in
+  at_exit (fun () -> close_out log_channel);
+  debug_msg_send :=
+    Some
+      (fun ~select ->
+        let timestamp = Unix.gettimeofday () in
+        Printf.fprintf log_channel "[%.6f] %s\n" timestamp select;
+        flush log_channel)
+
+let msg_send ~self ~select ~typ =
+  let cmd = selector select in
+  (match !debug_msg_send with Some debug_fn -> debug_fn ~select | None -> ());
+  Objc.msg_send ~self ~cmd ~typ
+
+let msg_send_suspended ~self ~select ~typ =
+  let cmd = selector select in
+  (match !debug_msg_send with Some debug_fn -> debug_fn ~select | None -> ());
+  Objc.msg_send_suspended ~self ~cmd ~typ
+
 type lifetime = Lifetime : 'a -> lifetime
 
 (* While we could use Foreign.funptr to attach lifetimes to ARC objects, we'd need to do this for
@@ -40,16 +63,16 @@ let nil : Objc.object_t = nil
 (* Helper to convert NSString to OCaml string *)
 let ocaml_string_from_nsstring nsstring_id =
   if is_nil nsstring_id then ""
-  else Objc.msg_send ~self:nsstring_id ~cmd:(selector "UTF8String") ~typ:(returning string)
+  else msg_send ~self:nsstring_id ~select:"UTF8String" ~typ:(returning string)
 
 let from_nsarray nsarray_id =
   if is_nil nsarray_id then [||]
   else
-    let count = Objc.msg_send ~self:nsarray_id ~cmd:(selector "count") ~typ:(returning size_t) in
+    let count = msg_send ~self:nsarray_id ~select:"count" ~typ:(returning size_t) in
     let count_int = Unsigned.Size_t.to_int count in
     Array.init count_int (fun i ->
         let obj_id =
-          Objc.msg_send ~self:nsarray_id ~cmd:(selector "objectAtIndex:")
+          msg_send ~self:nsarray_id ~select:"objectAtIndex:"
             ~typ:(ulong @-> returning Objc.id)
             (Unsigned.ULong.of_int i)
         in
@@ -60,12 +83,11 @@ let to_nsarray ?count buffer =
   let count = match count with Some c -> c | None -> List.length buffer in
   if count = 0 then
     (* Create empty array *)
-    Objc.msg_send ~self:nsarray_class ~cmd:(selector "array") ~typ:(returning Objc.id)
+    msg_send ~self:nsarray_class ~select:"array" ~typ:(returning Objc.id)
   else
     (* Create array with contents *)
     let array_with_objects_count =
-      Objc.msg_send ~self:nsarray_class
-        ~cmd:(selector "arrayWithObjects:count:")
+      msg_send ~self:nsarray_class ~select:"arrayWithObjects:count:"
         ~typ:(ptr Objc.id @-> size_t @-> returning Objc.id)
     in
     (* Note: the buffer is copied, so no need to keep the array alive. *)
@@ -77,7 +99,7 @@ let get_error_description nserror =
   if is_nil nserror then "No error"
   else
     let localized_description =
-      Objc.msg_send ~self:nserror ~cmd:(selector "localizedDescription") ~typ:(returning Objc.id)
+      msg_send ~self:nserror ~select:"localizedDescription" ~typ:(returning Objc.id)
     in
     if is_nil localized_description then "Unknown error (no description)"
     else ocaml_string_from_nsstring localized_description
@@ -235,7 +257,7 @@ module Device = struct
   type t = Objc.object_t
 
   let sexp_of_t t =
-    let device = Objc.msg_send ~self:t ~cmd:(selector "name") ~typ:(returning Objc.id) in
+    let device = msg_send ~self:t ~select:"name" ~typ:(returning Objc.id) in
     let name = ocaml_string_from_nsstring device in
     Sexplib0.Sexp.Atom name
 
@@ -290,10 +312,9 @@ module Device = struct
 
   let get_attributes (self : t) : attributes =
     let name =
-      ocaml_string_from_nsstring
-        (Objc.msg_send ~self ~cmd:(selector "name") ~typ:(returning Objc.id))
+      ocaml_string_from_nsstring (msg_send ~self ~select:"name" ~typ:(returning Objc.id))
     in
-    let registry_id = Objc.msg_send ~self ~cmd:(selector "registryID") ~typ:(returning ullong) in
+    let registry_id = msg_send ~self ~select:"registryID" ~typ:(returning ullong) in
     let max_threads_per_threadgroup_struct : Size.t =
       (* Use Size.t *)
       (* Use the locally defined mtlsize_t struct *)
@@ -306,28 +327,24 @@ module Device = struct
       in
       Size.from_struct size_struct.structured
     in
-    let max_buffer_length =
-      Objc.msg_send ~self ~cmd:(selector "maxBufferLength") ~typ:(returning ulong)
-    in
+    let max_buffer_length = msg_send ~self ~select:"maxBufferLength" ~typ:(returning ulong) in
     let max_threadgroup_memory_length =
-      Objc.msg_send ~self ~cmd:(selector "maxThreadgroupMemoryLength") ~typ:(returning ulong)
+      msg_send ~self ~select:"maxThreadgroupMemoryLength" ~typ:(returning ulong)
     in
     let argument_buffers_support_val =
-      Objc.msg_send ~self ~cmd:(selector "argumentBuffersSupport") ~typ:(returning llong)
+      msg_send ~self ~select:"argumentBuffersSupport" ~typ:(returning llong)
       (* Enum usually maps to long long *)
     in
     let argument_buffers_support = ArgumentBuffersTier.from_llong argument_buffers_support_val in
     let recommended_max_working_set_size =
-      Objc.msg_send ~self ~cmd:(selector "recommendedMaxWorkingSetSize") ~typ:(returning ullong)
+      msg_send ~self ~select:"recommendedMaxWorkingSetSize" ~typ:(returning ullong)
     in
-    let is_low_power = Objc.msg_send ~self ~cmd:(selector "isLowPower") ~typ:(returning bool) in
-    let is_removable = Objc.msg_send ~self ~cmd:(selector "isRemovable") ~typ:(returning bool) in
-    let is_headless = Objc.msg_send ~self ~cmd:(selector "isHeadless") ~typ:(returning bool) in
-    let has_unified_memory =
-      Objc.msg_send ~self ~cmd:(selector "hasUnifiedMemory") ~typ:(returning bool)
-    in
-    let peer_count = Objc.msg_send ~self ~cmd:(selector "peerCount") ~typ:(returning ulong) in
-    let peer_group_id = Objc.msg_send ~self ~cmd:(selector "peerGroupID") ~typ:(returning ullong) in
+    let is_low_power = msg_send ~self ~select:"isLowPower" ~typ:(returning bool) in
+    let is_removable = msg_send ~self ~select:"isRemovable" ~typ:(returning bool) in
+    let is_headless = msg_send ~self ~select:"isHeadless" ~typ:(returning bool) in
+    let has_unified_memory = msg_send ~self ~select:"hasUnifiedMemory" ~typ:(returning bool) in
+    let peer_count = msg_send ~self ~select:"peerCount" ~typ:(returning ulong) in
+    let peer_group_id = msg_send ~self ~select:"peerGroupID" ~typ:(returning ullong) in
     {
       name;
       registry_id;
@@ -489,80 +506,67 @@ module CompileOptions = struct
   end
 
   let set_fast_math_enabled (self : t) (value : bool) : unit =
-    Objc.msg_send ~self ~cmd:(selector "setFastMathEnabled:") ~typ:(bool @-> returning void) value
+    msg_send ~self ~select:"setFastMathEnabled:" ~typ:(bool @-> returning void) value
 
   let get_fast_math_enabled (self : t) : bool =
-    Objc.msg_send ~self ~cmd:(selector "fastMathEnabled") ~typ:(returning bool)
+    msg_send ~self ~select:"fastMathEnabled" ~typ:(returning bool)
 
   let set_math_mode (self : t) (mode : MathMode.t) : unit =
-    Objc.msg_send ~self ~cmd:(selector "setMathMode:")
-      ~typ:(ulong @-> returning void)
-      (MathMode.to_ulong mode)
+    msg_send ~self ~select:"setMathMode:" ~typ:(ulong @-> returning void) (MathMode.to_ulong mode)
 
   let get_math_mode (self : t) : MathMode.t =
-    let mode_val = Objc.msg_send ~self ~cmd:(selector "mathMode") ~typ:(returning ulong) in
+    let mode_val = msg_send ~self ~select:"mathMode" ~typ:(returning ulong) in
     MathMode.from_ulong mode_val
 
   let set_math_floating_point_functions (self : t) (funcs : MathFloatingPointFunctions.t) : unit =
-    Objc.msg_send ~self
-      ~cmd:(selector "setMathFloatingPointFunctions:")
+    msg_send ~self ~select:"setMathFloatingPointFunctions:"
       ~typ:(ulong @-> returning void)
       (MathFloatingPointFunctions.to_ulong funcs)
 
   let get_math_floating_point_functions (self : t) : MathFloatingPointFunctions.t =
-    let funcs_val =
-      Objc.msg_send ~self ~cmd:(selector "mathFloatingPointFunctions") ~typ:(returning ulong)
-    in
+    let funcs_val = msg_send ~self ~select:"mathFloatingPointFunctions" ~typ:(returning ulong) in
     MathFloatingPointFunctions.from_ulong funcs_val
 
   let set_enable_logging (self : t) (value : bool) : unit =
-    Objc.msg_send ~self ~cmd:(selector "setEnableLogging:") ~typ:(bool @-> returning void) value
+    msg_send ~self ~select:"setEnableLogging:" ~typ:(bool @-> returning void) value
 
   let get_enable_logging (self : t) : bool =
-    Objc.msg_send ~self ~cmd:(selector "enableLogging") ~typ:(returning bool)
+    msg_send ~self ~select:"enableLogging" ~typ:(returning bool)
 
   let set_max_total_threads_per_threadgroup (self : t) (value : int) : unit =
-    Objc.msg_send ~self
-      ~cmd:(selector "setMaxTotalThreadsPerThreadgroup:")
+    msg_send ~self ~select:"setMaxTotalThreadsPerThreadgroup:"
       ~typ:(ulong @-> returning void)
       (Unsigned.ULong.of_int value)
 
   let get_max_total_threads_per_threadgroup (self : t) : int =
-    let val_ulong =
-      Objc.msg_send ~self ~cmd:(selector "maxTotalThreadsPerThreadgroup") ~typ:(returning ulong)
-    in
+    let val_ulong = msg_send ~self ~select:"maxTotalThreadsPerThreadgroup" ~typ:(returning ulong) in
     Unsigned.ULong.to_int val_ulong
 
   let set_language_version (self : t) (version : LanguageVersion.t) : unit =
-    Objc.msg_send ~self ~cmd:(selector "setLanguageVersion:")
-      ~typ:(ulong @-> returning void)
-      version
+    msg_send ~self ~select:"setLanguageVersion:" ~typ:(ulong @-> returning void) version
 
   let get_language_version (self : t) : LanguageVersion.t =
-    Objc.msg_send ~self ~cmd:(selector "languageVersion") ~typ:(returning ulong)
+    msg_send ~self ~select:"languageVersion" ~typ:(returning ulong)
 
   let set_library_type (self : t) (lt : LibraryType.t) : unit =
-    Objc.msg_send ~self ~cmd:(selector "setLibraryType:") ~typ:(ulong @-> returning void) lt
+    msg_send ~self ~select:"setLibraryType:" ~typ:(ulong @-> returning void) lt
 
   let get_library_type (self : t) : LibraryType.t =
-    Objc.msg_send ~self ~cmd:(selector "libraryType") ~typ:(returning ulong)
+    msg_send ~self ~select:"libraryType" ~typ:(returning ulong)
 
   let set_install_name (self : t) (name : string) : unit =
     let ns_name = new_string name in
-    Objc.msg_send ~self ~cmd:(selector "setInstallName:") ~typ:(Objc.id @-> returning void) ns_name
+    msg_send ~self ~select:"setInstallName:" ~typ:(Objc.id @-> returning void) ns_name
 
   let get_install_name (self : t) : string =
-    let ns_name = Objc.msg_send ~self ~cmd:(selector "installName") ~typ:(returning Objc.id) in
+    let ns_name = msg_send ~self ~select:"installName" ~typ:(returning Objc.id) in
     ocaml_string_from_nsstring ns_name
 
   let set_optimization_level (self : t) (level : OptimizationLevel.t) : unit =
-    Objc.msg_send ~self
-      ~cmd:(selector "setOptimizationLevel:")
-      ~typ:(ulong @-> returning void)
-      level
+    msg_send ~self ~select:"setOptimizationLevel:" ~typ:(ulong @-> returning void) level
 
   let get_optimization_level (self : t) : OptimizationLevel.t =
-    Objc.msg_send ~self ~cmd:(selector "optimizationLevel") ~typ:(returning ulong)
+    msg_send ~self ~select:"optimizationLevel" ~typ:(returning ulong)
 
   let sexp_of_t t =
     let fast_math = get_fast_math_enabled t in
@@ -628,14 +632,13 @@ module Resource = struct
 
   let set_label (self : t) label =
     let ns_label = new_string label in
-    Objc.msg_send ~self ~cmd:(selector "setLabel:") ~typ:(Objc.id @-> returning void) ns_label
+    msg_send ~self ~select:"setLabel:" ~typ:(Objc.id @-> returning void) ns_label
 
   let get_label (self : t) =
-    let ns_label = Objc.msg_send ~self ~cmd:(selector "label") ~typ:(returning Objc.id) in
+    let ns_label = msg_send ~self ~select:"label" ~typ:(returning Objc.id) in
     ocaml_string_from_nsstring ns_label
 
-  let get_device (self : t) : Device.t =
-    Objc.msg_send ~self ~cmd:(selector "device") ~typ:(returning Objc.id)
+  let get_device (self : t) : Device.t = msg_send ~self ~select:"device" ~typ:(returning Objc.id)
 
   module PurgeableState = struct
     type t = KeepCurrent | NonVolatile | Volatile | Empty [@@deriving sexp_of]
@@ -652,7 +655,7 @@ module Resource = struct
 
   let set_purgeable_state (self : t) state =
     let prev_state_ulong =
-      Objc.msg_send ~self ~cmd:(selector "setPurgeableState:")
+      msg_send ~self ~select:"setPurgeableState:"
         ~typ:(ulong @-> returning ulong)
         (Unsigned.ULong.of_int (PurgeableState.to_int state))
     in
@@ -707,39 +710,36 @@ module Resource = struct
   end
 
   let get_cpu_cache_mode (self : t) : CPUCacheMode.t =
-    let mode_val = Objc.msg_send ~self ~cmd:(selector "cpuCacheMode") ~typ:(returning ulong) in
+    let mode_val = msg_send ~self ~select:"cpuCacheMode" ~typ:(returning ulong) in
     CPUCacheMode.from_ulong mode_val
 
   let get_storage_mode (self : t) : StorageMode.t =
-    let mode_val = Objc.msg_send ~self ~cmd:(selector "storageMode") ~typ:(returning ulong) in
+    let mode_val = msg_send ~self ~select:"storageMode" ~typ:(returning ulong) in
     StorageMode.from_ulong mode_val
 
   let get_hazard_tracking_mode (self : t) : HazardTrackingMode.t =
-    let mode_val =
-      Objc.msg_send ~self ~cmd:(selector "hazardTrackingMode") ~typ:(returning ulong)
-    in
+    let mode_val = msg_send ~self ~select:"hazardTrackingMode" ~typ:(returning ulong) in
     HazardTrackingMode.from_ulong mode_val
 
   let get_resource_options (self : t) : ResourceOptions.t =
-    Objc.msg_send ~self ~cmd:(selector "resourceOptions") ~typ:(returning ulong)
+    msg_send ~self ~select:"resourceOptions" ~typ:(returning ulong)
 
   let get_heap (self : t) =
     (* Returns id, needs Heap module *)
-    Objc.msg_send ~self ~cmd:(selector "heap") ~typ:(returning Objc.id)
+    msg_send ~self ~select:"heap" ~typ:(returning Objc.id)
 
   let get_heap_offset (self : t) : int =
-    let offset = Objc.msg_send ~self ~cmd:(selector "heapOffset") ~typ:(returning ulong) in
+    let offset = msg_send ~self ~select:"heapOffset" ~typ:(returning ulong) in
     Unsigned.ULong.to_int offset
 
   let get_allocated_size (self : t) : int =
-    let size = Objc.msg_send ~self ~cmd:(selector "allocatedSize") ~typ:(returning ulong) in
+    let size = msg_send ~self ~select:"allocatedSize" ~typ:(returning ulong) in
     Unsigned.ULong.to_int size
 
   let make_aliasable (self : t) : unit =
-    Objc.msg_send ~self ~cmd:(selector "makeAliasable") ~typ:(returning void)
+    msg_send ~self ~select:"makeAliasable" ~typ:(returning void)
 
-  let is_aliasable (self : t) : bool =
-    Objc.msg_send ~self ~cmd:(selector "isAliasable") ~typ:(returning bool)
+  let is_aliasable (self : t) : bool = msg_send ~self ~select:"isAliasable" ~typ:(returning bool)
 
   let sexp_of_t t =
     let label = get_label t in
@@ -778,7 +778,7 @@ module Buffer = struct
   let on_device (device : Device.t) ~length options : t =
     let select = "newBufferWithLength:options:" in
     let id =
-      Objc.msg_send ~self:device ~cmd:(selector select)
+      msg_send ~self:device ~select
         ~typ:(ulong @-> ulong @-> returning Objc.id)
         (Unsigned.ULong.of_int length) options
     in
@@ -787,7 +787,7 @@ module Buffer = struct
   let on_device_with_bytes (device : Device.t) ~bytes ~length options : t =
     let select = "newBufferWithBytes:length:options:" in
     let id =
-      Objc.msg_send ~self:device ~cmd:(selector select)
+      msg_send ~self:device ~select
         ~typ:(ptr void @-> ulong @-> ulong @-> returning Objc.id)
         bytes (Unsigned.ULong.of_int length) options
     in
@@ -803,38 +803,37 @@ module Buffer = struct
     in
     let select = "newBufferWithBytesNoCopy:length:options:deallocator:" in
     let id =
-      Objc.msg_send ~self:device ~cmd:(selector select)
+      msg_send ~self:device ~select
         ~typ:(ptr void @-> ulong @-> ulong @-> ptr void @-> returning Objc.id)
         bytes (Unsigned.ULong.of_int length) options dealloc_block
     in
     { id = gc ~select id; lifetime = Lifetime callback }
 
   let length (self : t) : int =
-    let len = Objc.msg_send ~self:self.id ~cmd:(selector "length") ~typ:(returning ulong) in
+    let len = msg_send ~self:self.id ~select:"length" ~typ:(returning ulong) in
     Unsigned.ULong.to_int len
 
   let contents (self : t) : unit ptr =
-    Objc.msg_send ~self:self.id ~cmd:(selector "contents") ~typ:(returning (ptr void))
+    msg_send ~self:self.id ~select:"contents" ~typ:(returning (ptr void))
 
   let did_modify_range (self : t) range =
     let ns_range = Range.to_value range in
-    Objc.msg_send ~self:self.id ~cmd:(selector "didModifyRange:")
+    msg_send ~self:self.id ~select:"didModifyRange:"
       ~typ:(Range.nsrange_t @-> returning void)
       !@ns_range
 
   let add_debug_marker (self : t) ~marker range =
     let ns_marker = new_string marker in
     let ns_range = Range.to_value range in
-    Objc.msg_send ~self:self.id
-      ~cmd:(selector "addDebugMarker:range:")
+    msg_send ~self:self.id ~select:"addDebugMarker:range:"
       ~typ:(Objc.id @-> Range.nsrange_t @-> returning void)
       ns_marker !@ns_range
 
   let remove_all_debug_markers (self : t) =
-    Objc.msg_send ~self:self.id ~cmd:(selector "removeAllDebugMarkers") ~typ:(returning void)
+    msg_send ~self:self.id ~select:"removeAllDebugMarkers" ~typ:(returning void)
 
   let get_gpu_address (self : t) : Unsigned.ULLong.t =
-    Objc.msg_send ~self:self.id ~cmd:(selector "gpuAddress") ~typ:(returning ullong)
+    msg_send ~self:self.id ~select:"gpuAddress" ~typ:(returning ullong)
 
   (* Note: newTextureWithDescriptor is omitted as per user request (graphics focus) *)
   (* Note: remoteStorageBuffer/newRemoteBufferViewForDevice omitted for simplicity, can be added if needed *)
@@ -875,21 +874,21 @@ module Function = struct
   let get_device (self : t) = Resource.get_device self
 
   let get_function_type (self : t) : FunctionType.t =
-    let ft = Objc.msg_send ~self ~cmd:(selector "functionType") ~typ:(returning ulong) in
+    let ft = msg_send ~self ~select:"functionType" ~typ:(returning ulong) in
     FunctionType.from_ulong ft
 
   (* Skipping patchType, patchControlPointCount, vertexAttributes, stageInputAttributes as they are
      graphics/tessellation related *)
 
   let get_name (self : t) : string =
-    let ns_name = Objc.msg_send ~self ~cmd:(selector "name") ~typ:(returning Objc.id) in
+    let ns_name = msg_send ~self ~select:"name" ~typ:(returning Objc.id) in
     ocaml_string_from_nsstring ns_name
 
   (* Skipping functionConstantsDictionary for brevity, can add if needed *)
 
   let get_options (self : t) : Unsigned.ULLong.t =
     (* MTLFunctionOptions is NSUInteger *)
-    Objc.msg_send ~self ~cmd:(selector "options") ~typ:(returning ullong)
+    msg_send ~self ~select:"options" ~typ:(returning ullong)
 
   (* Skipping newArgumentEncoderWithBufferIndex for now, as ArgumentEncoder itself is complex *)
 
@@ -911,7 +910,7 @@ module Library = struct
     let ns_source = new_string source in
     let err_ptr = allocate Objc.id nil in
     let lib =
-      Objc.msg_send ~self:device ~cmd:(selector select)
+      msg_send ~self:device ~select
         ~typ:(Objc.id @-> Objc.id @-> ptr Objc.id @-> returning Objc.id)
         ns_source options err_ptr
     in
@@ -922,7 +921,7 @@ module Library = struct
     let err_ptr = allocate Objc.id nil in
     let select = "newLibraryWithData:error:" in
     let lib =
-      Objc.msg_send ~self:device ~cmd:(selector select)
+      msg_send ~self:device ~select
         ~typ:(ptr void @-> ptr Objc.id @-> returning Objc.id)
           (* dispatch_data_t maps to ptr void? Check C *)
         (coerce (ptr void) (ptr void) data)
@@ -935,11 +934,7 @@ module Library = struct
   let new_function_with_name (self : t) name : Function.t =
     let select = "newFunctionWithName:" in
     let ns_name = new_string name in
-    let func =
-      Objc.msg_send ~self:self.id ~cmd:(selector select)
-        ~typ:(Objc.id @-> returning Objc.id)
-        ns_name
-    in
+    let func = msg_send ~self:self.id ~select ~typ:(Objc.id @-> returning Objc.id) ns_name in
     gc ~select func
 
   (* Skipping newFunctionWithName:constantValues variants for brevity *)
@@ -947,20 +942,16 @@ module Library = struct
   (* Skipping newIntersectionFunctionWithDescriptor variants for brevity *)
 
   let get_function_names (self : t) : string array =
-    let ns_array =
-      Objc.msg_send ~self:self.id ~cmd:(selector "functionNames") ~typ:(returning Objc.id)
-    in
+    let ns_array = msg_send ~self:self.id ~select:"functionNames" ~typ:(returning Objc.id) in
     let id_array = from_nsarray ns_array in
     Array.map ocaml_string_from_nsstring id_array
 
   let get_library_type (self : t) : CompileOptions.LibraryType.t =
-    let lt_val = Objc.msg_send ~self:self.id ~cmd:(selector "type") ~typ:(returning ulong) in
+    let lt_val = msg_send ~self:self.id ~select:"type" ~typ:(returning ulong) in
     lt_val (* It's already the correct type *)
 
   let get_install_name (self : t) : string option =
-    let ns_name =
-      Objc.msg_send ~self:self.id ~cmd:(selector "installName") ~typ:(returning Objc.id)
-    in
+    let ns_name = msg_send ~self:self.id ~select:"installName" ~typ:(returning Objc.id) in
     if is_nil ns_name then None else Some (ocaml_string_from_nsstring ns_name)
 
   let sexp_of_t t =
@@ -987,19 +978,18 @@ module ComputePipelineDescriptor = struct
   let get_label (self : t) = Resource.get_label self
 
   let set_compute_function (self : t) (func : Function.t) =
-    Objc.msg_send ~self ~cmd:(selector "setComputeFunction:") ~typ:(Objc.id @-> returning void) func
+    msg_send ~self ~select:"setComputeFunction:" ~typ:(Objc.id @-> returning void) func
 
   let get_compute_function (self : t) : Function.t =
-    Objc.msg_send ~self ~cmd:(selector "computeFunction") ~typ:(returning Objc.id)
+    msg_send ~self ~select:"computeFunction" ~typ:(returning Objc.id)
 
   let set_support_indirect_command_buffers (self : t) support =
-    Objc.msg_send ~self
-      ~cmd:(selector "setSupportIndirectCommandBuffers:")
+    msg_send ~self ~select:"setSupportIndirectCommandBuffers:"
       ~typ:(bool @-> returning void)
       support
 
   let get_support_indirect_command_buffers (self : t) : bool =
-    Objc.msg_send ~self ~cmd:(selector "supportIndirectCommandBuffers") ~typ:(returning bool)
+    msg_send ~self ~select:"supportIndirectCommandBuffers" ~typ:(returning bool)
 
   let sexp_of_t t =
     let label = get_label t in
@@ -1025,7 +1015,7 @@ module ComputePipelineState = struct
     let err_ptr = allocate Objc.id nil in
     let maybe_reflection_ptr = if reflection then allocate Objc.id nil else nil_ptr in
     let pso =
-      Objc.msg_send ~self:device ~cmd:(selector select)
+      msg_send ~self:device ~select
         ~typ:(Objc.id @-> ulong @-> ptr Objc.id @-> ptr Objc.id @-> returning Objc.id)
         func options maybe_reflection_ptr err_ptr
     in
@@ -1038,7 +1028,7 @@ module ComputePipelineState = struct
     let err_ptr = allocate Objc.id nil in
     let maybe_reflection_ptr = if reflection then allocate Objc.id nil else nil_ptr in
     let pso =
-      Objc.msg_send ~self:device ~cmd:(selector select)
+      msg_send ~self:device ~select
         ~typ:(Objc.id @-> ulong @-> ptr Objc.id @-> ptr Objc.id @-> returning Objc.id)
         desc options maybe_reflection_ptr err_ptr
     in
@@ -1050,23 +1040,19 @@ module ComputePipelineState = struct
   let get_device (self : t) = Resource.get_device self
 
   let get_max_total_threads_per_threadgroup (self : t) : int =
-    let count =
-      Objc.msg_send ~self ~cmd:(selector "maxTotalThreadsPerThreadgroup") ~typ:(returning ulong)
-    in
+    let count = msg_send ~self ~select:"maxTotalThreadsPerThreadgroup" ~typ:(returning ulong) in
     Unsigned.ULong.to_int count
 
   let get_thread_execution_width (self : t) : int =
-    let width = Objc.msg_send ~self ~cmd:(selector "threadExecutionWidth") ~typ:(returning ulong) in
+    let width = msg_send ~self ~select:"threadExecutionWidth" ~typ:(returning ulong) in
     Unsigned.ULong.to_int width
 
   let get_static_threadgroup_memory_length (self : t) : int =
-    let length =
-      Objc.msg_send ~self ~cmd:(selector "staticThreadgroupMemoryLength") ~typ:(returning ulong)
-    in
+    let length = msg_send ~self ~select:"staticThreadgroupMemoryLength" ~typ:(returning ulong) in
     Unsigned.ULong.to_int length
 
   let get_support_indirect_command_buffers (self : t) : bool =
-    Objc.msg_send ~self ~cmd:(selector "supportIndirectCommandBuffers") ~typ:(returning bool)
+    msg_send ~self ~select:"supportIndirectCommandBuffers" ~typ:(returning bool)
 
   let sexp_of_t t =
     let label = get_label t in
@@ -1117,21 +1103,17 @@ module LogStateDescriptor = struct
   let create () = new_gc ~class_name:"MTLLogStateDescriptor"
 
   let set_level (self : t) (level : LogLevel.t) : unit =
-    Objc.msg_send ~self ~cmd:(selector "setLevel:")
-      ~typ:(long @-> returning void)
-      (LogLevel.to_long level)
+    msg_send ~self ~select:"setLevel:" ~typ:(long @-> returning void) (LogLevel.to_long level)
 
   let get_level (self : t) : LogLevel.t =
-    let level_val = Objc.msg_send ~self ~cmd:(selector "level") ~typ:(returning long) in
+    let level_val = msg_send ~self ~select:"level" ~typ:(returning long) in
     LogLevel.from_long level_val
 
   let set_buffer_size (self : t) (size : int) : unit =
-    Objc.msg_send ~self ~cmd:(selector "setBufferSize:")
-      ~typ:(long @-> returning void)
-      (Signed.Long.of_int size)
+    msg_send ~self ~select:"setBufferSize:" ~typ:(long @-> returning void) (Signed.Long.of_int size)
 
   let get_buffer_size (self : t) : int =
-    let size_val = Objc.msg_send ~self ~cmd:(selector "bufferSize") ~typ:(returning long) in
+    let size_val = msg_send ~self ~select:"bufferSize" ~typ:(returning long) in
     Signed.Long.to_int size_val
 
   let sexp_of_t t =
@@ -1148,7 +1130,7 @@ module LogState = struct
     let select = "newLogStateWithDescriptor:error:" in
     let err_ptr = allocate Objc.id nil in
     let id =
-      Objc.msg_send ~self:device ~cmd:(selector select)
+      msg_send ~self:device ~select
         ~typ:(Objc.id @-> ptr Objc.id @-> returning Objc.id)
         descriptor err_ptr
     in
@@ -1185,9 +1167,7 @@ module LogState = struct
     in
     (* Store the closure in the lifetime field to keep it alive *)
     self.lifetime <- Lifetime (self.lifetime, block_impl);
-    Objc.msg_send ~self:self.id ~cmd:(selector "addLogHandler:")
-      ~typ:(ptr void @-> returning void)
-      block_ptr
+    msg_send ~self:self.id ~select:"addLogHandler:" ~typ:(ptr void @-> returning void) block_ptr
 
   let sexp_of_t _t = Sexplib0.Sexp.message "<MTLLogState>" [] (* No readily available properties *)
 end
@@ -1200,15 +1180,12 @@ module CommandQueueDescriptor = struct
     { id = new_gc ~class_name:"MTLCommandQueueDescriptor"; lifetime = Lifetime () }
 
   let set_max_command_buffer_count (self : t) (count : int) : unit =
-    Objc.msg_send ~self:self.id
-      ~cmd:(selector "setMaxCommandBufferCount:")
+    msg_send ~self:self.id ~select:"setMaxCommandBufferCount:"
       ~typ:(ulong @-> returning void)
       (Unsigned.ULong.of_int count)
 
   let get_max_command_buffer_count (self : t) : int =
-    let count_val =
-      Objc.msg_send ~self:self.id ~cmd:(selector "maxCommandBufferCount") ~typ:(returning ulong)
-    in
+    let count_val = msg_send ~self:self.id ~select:"maxCommandBufferCount" ~typ:(returning ulong) in
     Unsigned.ULong.to_int count_val
 
   let set_log_state (self : t) (log_state : LogState.t option) : unit =
@@ -1220,15 +1197,11 @@ module CommandQueueDescriptor = struct
           self.lifetime <- Lifetime (self.lifetime, ls.lifetime);
           ls.id
     in
-    Objc.msg_send ~self:self.id ~cmd:(selector "setLogState:")
-      ~typ:(Objc.id @-> returning void)
-      log_state_id
+    msg_send ~self:self.id ~select:"setLogState:" ~typ:(Objc.id @-> returning void) log_state_id
 
   (* Returns LogState.t option because the property is nullable *)
   let get_log_state (self : t) : LogState.t option =
-    let log_state_id =
-      Objc.msg_send ~self:self.id ~cmd:(selector "logState") ~typ:(returning Objc.id)
-    in
+    let log_state_id = msg_send ~self:self.id ~select:"logState" ~typ:(returning Objc.id) in
     (* NOTE: This is defensive and might leak a bit of memory if the log state is reused. *)
     if is_nil log_state_id then None else Some { id = log_state_id; lifetime = self.lifetime }
 
@@ -1249,13 +1222,13 @@ module CommandQueue = struct
 
   let on_device (device : Device.t) : t =
     let select = "newCommandQueue" in
-    let queue = Objc.msg_send ~self:device ~cmd:(selector select) ~typ:(returning Objc.id) in
+    let queue = msg_send ~self:device ~select ~typ:(returning Objc.id) in
     gc ~select queue
 
   let on_device_with_max_buffer_count (device : Device.t) max_count : t =
     let select = "newCommandQueueWithMaxCommandBufferCount:" in
     let queue =
-      Objc.msg_send ~self:device ~cmd:(selector select)
+      msg_send ~self:device ~select
         ~typ:(ulong @-> returning Objc.id)
         (Unsigned.ULong.of_int max_count)
     in
@@ -1263,11 +1236,7 @@ module CommandQueue = struct
 
   let on_device_with_descriptor (device : Device.t) (descriptor : CommandQueueDescriptor.t) : t =
     let select = "newCommandQueueWithDescriptor:" in
-    let queue =
-      Objc.msg_send ~self:device ~cmd:(selector select)
-        ~typ:(Objc.id @-> returning Objc.id)
-        descriptor.id
-    in
+    let queue = msg_send ~self:device ~select ~typ:(Objc.id @-> returning Objc.id) descriptor.id in
     gc ~select queue
 
   let set_label (self : t) label = Resource.set_label self label
@@ -1289,29 +1258,27 @@ module CommandBuffer = struct
   let get_device (self : t) = Resource.get_device self.id
 
   let get_command_queue (self : t) : CommandQueue.t =
-    Objc.msg_send ~self:self.id ~cmd:(selector "commandQueue") ~typ:(returning Objc.id)
+    msg_send ~self:self.id ~select:"commandQueue" ~typ:(returning Objc.id)
 
   let get_retained_references (self : t) : bool =
-    Objc.msg_send ~self:self.id ~cmd:(selector "retainedReferences") ~typ:(returning bool)
+    msg_send ~self:self.id ~select:"retainedReferences" ~typ:(returning bool)
 
   let on_queue (queue : CommandQueue.t) : t =
     (* Returns CommandBuffer.t *)
     let select = "commandBuffer" in
-    let id = Objc.msg_send ~self:queue ~cmd:(selector select) ~typ:(returning Objc.id) in
+    let id = msg_send ~self:queue ~select ~typ:(returning Objc.id) in
     { id = gc ~select id; lifetime = Lifetime () }
 
   let on_queue_with_unretained_references (queue : CommandQueue.t) : t =
     (* Returns CommandBuffer.t *)
     let select = "commandBufferWithUnretainedReferences" in
-    let id = Objc.msg_send ~self:queue ~cmd:(selector select) ~typ:(returning Objc.id) in
+    let id = msg_send ~self:queue ~select ~typ:(returning Objc.id) in
     { id = gc ~select id; lifetime = Lifetime () }
 
   (* command_buffer_with_descriptor requires MTLCommandBufferDescriptor, skipping for now *)
 
-  let enqueue (self : t) =
-    Objc.msg_send ~self:self.id ~cmd:(selector "enqueue") ~typ:(returning void)
-
-  let commit (self : t) = Objc.msg_send ~self:self.id ~cmd:(selector "commit") ~typ:(returning void)
+  let enqueue (self : t) = msg_send ~self:self.id ~select:"enqueue" ~typ:(returning void)
+  let commit (self : t) = msg_send ~self:self.id ~select:"commit" ~typ:(returning void)
 
   let add_scheduled_handler (self : t) (handler : t -> unit) =
     (* The block takes one argument: the command buffer itself (id) *)
@@ -1319,7 +1286,7 @@ module CommandBuffer = struct
     self.lifetime <- Lifetime (self.lifetime, block_impl);
     (* args should list the types of arguments *after* the implicit _block *)
     let block_ptr = Objc_type.(Block.make block_impl ~args:[ id ] ~return:void) in
-    Objc.msg_send ~self:self.id ~cmd:(selector "addScheduledHandler:")
+    msg_send ~self:self.id ~select:"addScheduledHandler:"
       ~typ:(ptr void @-> returning void) (* Pass the block pointer directly *)
       block_ptr
 
@@ -1329,15 +1296,15 @@ module CommandBuffer = struct
     self.lifetime <- Lifetime (self.lifetime, block_impl);
     (* args should list the types of arguments *after* the implicit _block *)
     let block_ptr = Objc_type.(Block.make block_impl ~args:[ id ] ~return:void) in
-    Objc.msg_send ~self:self.id ~cmd:(selector "addCompletedHandler:")
+    msg_send ~self:self.id ~select:"addCompletedHandler:"
       ~typ:(ptr void @-> returning void) (* Pass the block pointer directly *)
       block_ptr
 
   let wait_until_scheduled (self : t) =
-    Objc.msg_send_suspended ~self:self.id ~cmd:(selector "waitUntilScheduled") ~typ:(returning void)
+    msg_send_suspended ~self:self.id ~select:"waitUntilScheduled" ~typ:(returning void)
 
   let wait_until_completed (self : t) =
-    Objc.msg_send_suspended ~self:self.id ~cmd:(selector "waitUntilCompleted") ~typ:(returning void)
+    msg_send_suspended ~self:self.id ~select:"waitUntilCompleted" ~typ:(returning void)
 
   module Status = struct
     type t = NotEnqueued | Enqueued | Committed | Scheduled | Completed | Error
@@ -1363,19 +1330,19 @@ module CommandBuffer = struct
   end
 
   let get_status (self : t) : Status.t =
-    let status_val = Objc.msg_send ~self:self.id ~cmd:(selector "status") ~typ:(returning ulong) in
+    let status_val = msg_send ~self:self.id ~select:"status" ~typ:(returning ulong) in
     Status.from_ulong status_val
 
   let get_error (self : t) : string option =
     (* NSError *)
-    let err = Objc.msg_send ~self:self.id ~cmd:(selector "error") ~typ:(returning Objc.id) in
+    let err = msg_send ~self:self.id ~select:"error" ~typ:(returning Objc.id) in
     if is_nil err then None else Some (get_error_description err)
 
   let get_gpu_start_time (self : t) : float =
-    Objc.msg_send ~self:self.id ~cmd:(selector "GPUStartTime") ~typ:(returning double)
+    msg_send ~self:self.id ~select:"GPUStartTime" ~typ:(returning double)
 
   let get_gpu_end_time (self : t) : float =
-    Objc.msg_send ~self:self.id ~cmd:(selector "GPUEndTime") ~typ:(returning double)
+    msg_send ~self:self.id ~select:"GPUEndTime" ~typ:(returning double)
 
   let sexp_of_t t =
     let label = get_label t in
@@ -1395,25 +1362,21 @@ module CommandBuffer = struct
       ]
 
   let encode_wait_for_event self event value =
-    Objc.msg_send ~self:self.id
-      ~cmd:(selector "encodeWaitForEvent:value:")
+    msg_send ~self:self.id ~select:"encodeWaitForEvent:value:"
       ~typ:(Objc.id @-> ullong @-> returning void)
       event value
 
   let encode_signal_event self event value =
-    Objc.msg_send ~self:self.id
-      ~cmd:(selector "encodeSignalEvent:value:")
+    msg_send ~self:self.id ~select:"encodeSignalEvent:value:"
       ~typ:(Objc.id @-> ullong @-> returning void)
       event value
 
   let push_debug_group (self : t) group_name =
     let ns_group = new_string group_name in
-    Objc.msg_send ~self:self.id ~cmd:(selector "pushDebugGroup:")
-      ~typ:(Objc.id @-> returning void)
-      ns_group
+    msg_send ~self:self.id ~select:"pushDebugGroup:" ~typ:(Objc.id @-> returning void) ns_group
 
   let pop_debug_group (self : t) =
-    Objc.msg_send ~self:self.id ~cmd:(selector "popDebugGroup") ~typ:(returning void)
+    msg_send ~self:self.id ~select:"popDebugGroup" ~typ:(returning void)
 
   (* Skipping renderCommandEncoder, parallelRenderCommandEncoder, resourceStateCommandEncoder,
      accelerationStructureCommandEncoder *)
@@ -1432,21 +1395,17 @@ module CommandEncoder = struct
     Sexplib0.Sexp.message "<CommandEncoder>"
       [ ("label", Atom label); ("device", Device.sexp_of_t device) ]
 
-  let end_encoding (self : t) =
-    Objc.msg_send ~self ~cmd:(selector "endEncoding") ~typ:(returning void)
+  let end_encoding (self : t) = msg_send ~self ~select:"endEncoding" ~typ:(returning void)
 
   let insert_debug_signpost (self : t) signpost =
     let ns_signpost = new_string signpost in
-    Objc.msg_send ~self ~cmd:(selector "insertDebugSignpost:")
-      ~typ:(Objc.id @-> returning void)
-      ns_signpost
+    msg_send ~self ~select:"insertDebugSignpost:" ~typ:(Objc.id @-> returning void) ns_signpost
 
   let push_debug_group (self : t) group_name =
     let ns_group = new_string group_name in
-    Objc.msg_send ~self ~cmd:(selector "pushDebugGroup:") ~typ:(Objc.id @-> returning void) ns_group
+    msg_send ~self ~select:"pushDebugGroup:" ~typ:(Objc.id @-> returning void) ns_group
 
-  let pop_debug_group (self : t) =
-    Objc.msg_send ~self ~cmd:(selector "popDebugGroup") ~typ:(returning void)
+  let pop_debug_group (self : t) = msg_send ~self ~select:"popDebugGroup" ~typ:(returning void)
 end
 
 module ResourceUsage = struct
@@ -1474,7 +1433,7 @@ module ComputeCommandEncoder = struct
   let on_buffer (self : CommandBuffer.t) : t =
     (* Returns ComputeCommandEncoder.t *)
     let select = "computeCommandEncoder" in
-    let encoder = Objc.msg_send ~self:self.id ~cmd:(selector select) ~typ:(returning Objc.id) in
+    let encoder = msg_send ~self:self.id ~select ~typ:(returning Objc.id) in
     gc ~select encoder
 
   module DispatchType = struct
@@ -1487,7 +1446,7 @@ module ComputeCommandEncoder = struct
     (* Returns ComputeCommandEncoder.t *)
     let select = "computeCommandEncoderWithDispatchType:" in
     let encoder =
-      Objc.msg_send ~self:self.id ~cmd:(selector select)
+      msg_send ~self:self.id ~select
         ~typ:(ulong @-> returning Objc.id)
         (DispatchType.to_ulong dispatch_type)
     in
@@ -1499,14 +1458,10 @@ module ComputeCommandEncoder = struct
   let pop_debug_group (self : t) = CommandEncoder.pop_debug_group self
 
   let set_compute_pipeline_state (self : t) (pso : ComputePipelineState.t) =
-    Objc.msg_send ~self
-      ~cmd:(selector "setComputePipelineState:")
-      ~typ:(Objc.id @-> returning void)
-      pso
+    msg_send ~self ~select:"setComputePipelineState:" ~typ:(Objc.id @-> returning void) pso
 
   let set_buffer (self : t) ?(offset = 0) ~index buffer =
-    Objc.msg_send ~self
-      ~cmd:(selector "setBuffer:offset:atIndex:")
+    msg_send ~self ~select:"setBuffer:offset:atIndex:"
       ~typ:(Objc.id @-> ulong @-> ulong @-> returning void)
       buffer.id (Unsigned.ULong.of_int offset) (Unsigned.ULong.of_int index)
 
@@ -1518,49 +1473,43 @@ module ComputeCommandEncoder = struct
       (offsets_array, CArray.(start offsets_array))
     in
     let range = Range.make ~location:index ~length:(List.length buffers) in
-    Objc.msg_send ~self
-      ~cmd:(selector "setBuffers:offsets:withRange:")
+    msg_send ~self ~select:"setBuffers:offsets:withRange:"
       ~typ:(Objc.id @-> ptr ulong @-> Range.nsrange_t @-> returning void)
       ns_array_buffers offsets_ptr !@range;
     ignore (Sys.opaque_identity lifetime)
 
   let set_bytes (self : t) ~bytes ~length ~index =
-    Objc.msg_send ~self
-      ~cmd:(selector "setBytes:length:atIndex:")
+    msg_send ~self ~select:"setBytes:length:atIndex:"
       ~typ:(ptr void @-> ulong @-> ulong @-> returning void)
       bytes (Unsigned.ULong.of_int length) (Unsigned.ULong.of_int index)
 
   let set_threadgroup_memory_length (self : t) ~length ~index =
-    Objc.msg_send ~self
-      ~cmd:(selector "setThreadgroupMemoryLength:atIndex:")
+    msg_send ~self ~select:"setThreadgroupMemoryLength:atIndex:"
       ~typ:(ulong @-> ulong @-> returning void)
       (Unsigned.ULong.of_int length) (Unsigned.ULong.of_int index)
 
   let dispatch_threadgroups (self : t) ~threadgroups_per_grid ~threads_per_threadgroup =
     let grid_size_val = Size.to_value threadgroups_per_grid in
     let group_size_val = Size.to_value threads_per_threadgroup in
-    Objc.msg_send ~self
-      ~cmd:(selector "dispatchThreadgroups:threadsPerThreadgroup:")
+    msg_send ~self ~select:"dispatchThreadgroups:threadsPerThreadgroup:"
       ~typ:(Size.mtlsize_t @-> Size.mtlsize_t @-> returning void)
       !@grid_size_val !@group_size_val
 
   let use_resource (self : t) resource usage =
-    Objc.msg_send ~self ~cmd:(selector "useResource:usage:")
+    msg_send ~self ~select:"useResource:usage:"
       ~typ:(Objc.id @-> ulong @-> returning void)
       resource usage
 
   let use_resources (self : t) resources usage =
     let count = List.length resources in
     let ns_array = to_nsarray ~count resources in
-    Objc.msg_send ~self
-      ~cmd:(selector "useResources:count:usage:")
+    msg_send ~self ~select:"useResources:count:usage:"
       ~typ:(Objc.id @-> ulong @-> ulong @-> returning void)
       ns_array (Unsigned.ULong.of_int count) usage
 
   let execute_commands_in_buffer (self : t) buffer range =
     let ns_range = Range.to_value range in
-    Objc.msg_send ~self
-      ~cmd:(selector "executeCommandsInBuffer:withRange:")
+    msg_send ~self ~select:"executeCommandsInBuffer:withRange:"
       ~typ:(Objc.id @-> Range.nsrange_t @-> returning void)
       buffer !@ns_range
 
@@ -1585,7 +1534,7 @@ module BlitCommandEncoder = struct
     (* Correct argument type to CommandBuffer.t *)
     (* Returns BlitCommandEncoder.t *)
     let select = "blitCommandEncoder" in
-    let encoder = Objc.msg_send ~self:cmdbuf.id ~cmd:(selector select) ~typ:(returning Objc.id) in
+    let encoder = msg_send ~self:cmdbuf.id ~select ~typ:(returning Objc.id) in
     gc ~select encoder
 
   let end_encoding (self : t) = CommandEncoder.end_encoding self
@@ -1595,8 +1544,7 @@ module BlitCommandEncoder = struct
 
   let copy_from_buffer (self : t) ~(source_buffer : Buffer.t) ~source_offset
       ~(destination_buffer : Buffer.t) ~destination_offset ~size =
-    Objc.msg_send ~self
-      ~cmd:(selector "copyFromBuffer:sourceOffset:toBuffer:destinationOffset:size:")
+    msg_send ~self ~select:"copyFromBuffer:sourceOffset:toBuffer:destinationOffset:size:"
       ~typ:(Objc.id @-> ulong @-> Objc.id @-> ulong @-> ulong @-> returning void)
       source_buffer.id
       (Unsigned.ULong.of_int source_offset)
@@ -1607,22 +1555,19 @@ module BlitCommandEncoder = struct
   let fill_buffer (self : t) (buffer : Buffer.t) range ~value =
     if value < 0 || value > 255 then failwith "Invalid value for fill_buffer";
     let ns_range = Range.to_value range in
-    Objc.msg_send ~self
-      ~cmd:(selector "fillBuffer:range:value:")
+    msg_send ~self ~select:"fillBuffer:range:value:"
       ~typ:(Objc.id @-> Range.nsrange_t @-> uchar @-> returning void)
       buffer.id !@ns_range (Unsigned.UChar.of_int value);
     ignore (Sys.opaque_identity ns_range)
 
   let synchronize_resource (self : t) resource =
-    Objc.msg_send ~self ~cmd:(selector "synchronizeResource:")
-      ~typ:(Objc.id @-> returning void)
-      resource
+    msg_send ~self ~select:"synchronizeResource:" ~typ:(Objc.id @-> returning void) resource
 
   let update_fence (self : t) fence =
-    Objc.msg_send ~self ~cmd:(selector "updateFence:") ~typ:(Objc.id @-> returning void) fence
+    msg_send ~self ~select:"updateFence:" ~typ:(Objc.id @-> returning void) fence
 
   let wait_for_fence (self : t) fence =
-    Objc.msg_send ~self ~cmd:(selector "waitForFence:") ~typ:(Objc.id @-> returning void) fence
+    msg_send ~self ~select:"waitForFence:" ~typ:(Objc.id @-> returning void) fence
 
   (* Skipping texture copies for now, add if needed *)
   (* Skipping generateMipmaps, optimizeContents, indirect command buffer ops *)
@@ -1655,7 +1600,7 @@ module SharedEvent = struct
     type t = Objc.object_t
 
     let get_label self =
-      let ns_label = Objc.msg_send ~self ~cmd:(selector "label") ~typ:(returning Objc.id) in
+      let ns_label = msg_send ~self ~select:"label" ~typ:(returning Objc.id) in
       if is_nil ns_label then None else Some (ocaml_string_from_nsstring ns_label)
   end
 
@@ -1663,7 +1608,7 @@ module SharedEvent = struct
 
   let on_device (device : Device.t) : t =
     let select = "newSharedEvent" in
-    let id = Objc.msg_send ~self:device ~cmd:(selector select) ~typ:(returning Objc.id) in
+    let id = msg_send ~self:device ~select ~typ:(returning Objc.id) in
     { id = gc ~select id; lifetime = Lifetime () }
 
   let get_device (self : t) : Device.t =
@@ -1673,31 +1618,27 @@ module SharedEvent = struct
   let get_label (self : t) = Resource.get_label self.id
 
   let set_signaled_value (self : t) value =
-    Objc.msg_send ~self:self.id ~cmd:(selector "setSignaledValue:")
-      ~typ:(ullong @-> returning void)
-      value
+    msg_send ~self:self.id ~select:"setSignaledValue:" ~typ:(ullong @-> returning void) value
 
   let get_signaled_value (self : t) : Unsigned.ULLong.t =
-    Objc.msg_send ~self:self.id ~cmd:(selector "signaledValue") ~typ:(returning ullong)
+    msg_send ~self:self.id ~select:"signaledValue" ~typ:(returning ullong)
 
   let notify_listener (self : t) (listener : SharedEventListener.t) ~value
       (handler : t -> Unsigned.ULLong.t -> unit) =
     let block_impl = fun _block _event_arg value_arg -> handler self value_arg in
     self.lifetime <- Lifetime (self.lifetime, block_impl);
     let block_ptr = Objc_type.(Block.make block_impl ~args:[ id; ullong ] ~return:void) in
-    Objc.msg_send ~self:self.id
-      ~cmd:(selector "notifyListener:atValue:block:")
+    msg_send ~self:self.id ~select:"notifyListener:atValue:block:"
       ~typ:(Objc.id @-> ullong @-> ptr void @-> returning void)
       listener value block_ptr
 
   let new_shared_event_handle (self : t) : SharedEventHandle.t =
     let select = "newSharedEventHandle" in
-    let handle = Objc.msg_send ~self:self.id ~cmd:(selector select) ~typ:(returning Objc.id) in
+    let handle = msg_send ~self:self.id ~select ~typ:(returning Objc.id) in
     gc ~select handle
 
   let wait_until_signaled_value (self : t) ~value ~timeout_ms : bool =
-    Objc.msg_send ~self:self.id
-      ~cmd:(selector "waitUntilSignaledValue:timeoutMS:")
+    msg_send ~self:self.id ~select:"waitUntilSignaledValue:timeoutMS:"
       ~typ:(ullong @-> ullong @-> returning bool)
       value timeout_ms
 
@@ -1711,7 +1652,7 @@ module Fence = struct
 
   let on_device (device : Device.t) : t =
     let select = "newFence" in
-    let fence = Objc.msg_send ~self:device ~cmd:(selector select) ~typ:(returning Objc.id) in
+    let fence = msg_send ~self:device ~select ~typ:(returning Objc.id) in
     gc ~select fence
 
   let get_device (self : t) : Device.t = Resource.get_device self
@@ -1744,38 +1685,30 @@ module IndirectCommandBufferDescriptor = struct
   let create () = new_gc ~class_name:"MTLIndirectCommandBufferDescriptor"
 
   let set_command_types (self : t) types =
-    Objc.msg_send ~self ~cmd:(selector "setCommandTypes:") ~typ:(ulong @-> returning void) types
+    msg_send ~self ~select:"setCommandTypes:" ~typ:(ulong @-> returning void) types
 
   let get_command_types (self : t) : IndirectCommandType.t =
-    Objc.msg_send ~self ~cmd:(selector "commandTypes") ~typ:(returning ulong)
+    msg_send ~self ~select:"commandTypes" ~typ:(returning ulong)
 
   let set_inherit_pipeline_state (self : t) inherit_pso =
-    Objc.msg_send ~self
-      ~cmd:(selector "setInheritPipelineState:")
-      ~typ:(bool @-> returning void)
-      inherit_pso
+    msg_send ~self ~select:"setInheritPipelineState:" ~typ:(bool @-> returning void) inherit_pso
 
   let get_inherit_pipeline_state (self : t) : bool =
-    Objc.msg_send ~self ~cmd:(selector "inheritPipelineState") ~typ:(returning bool)
+    msg_send ~self ~select:"inheritPipelineState" ~typ:(returning bool)
 
   let set_inherit_buffers (self : t) inherit_buffers =
-    Objc.msg_send ~self ~cmd:(selector "setInheritBuffers:")
-      ~typ:(bool @-> returning void)
-      inherit_buffers
+    msg_send ~self ~select:"setInheritBuffers:" ~typ:(bool @-> returning void) inherit_buffers
 
   let get_inherit_buffers (self : t) : bool =
-    Objc.msg_send ~self ~cmd:(selector "inheritBuffers") ~typ:(returning bool)
+    msg_send ~self ~select:"inheritBuffers" ~typ:(returning bool)
 
   let set_max_kernel_buffer_bind_count (self : t) count =
-    Objc.msg_send ~self
-      ~cmd:(selector "setMaxKernelBufferBindCount:")
+    msg_send ~self ~select:"setMaxKernelBufferBindCount:"
       ~typ:(ulong @-> returning void)
       (Unsigned.ULong.of_int count)
 
   let get_max_kernel_buffer_bind_count (self : t) : int =
-    let count =
-      Objc.msg_send ~self ~cmd:(selector "maxKernelBufferBindCount") ~typ:(returning ulong)
-    in
+    let count = msg_send ~self ~select:"maxKernelBufferBindCount" ~typ:(returning ulong) in
     Unsigned.ULong.to_int count
 
   (* Skipping maxVertexBufferBindCount, maxFragmentBufferBindCount as they are graphics related *)
@@ -1800,27 +1733,21 @@ module IndirectComputeCommand = struct
   let sexp_of_t _t = Sexplib0.Sexp.Atom "<IndirectComputeCommand>"
 
   let set_compute_pipeline_state (self : t) (pso : ComputePipelineState.t) =
-    Objc.msg_send ~self
-      ~cmd:(selector "setComputePipelineState:")
-      ~typ:(Objc.id @-> returning void)
-      pso
+    msg_send ~self ~select:"setComputePipelineState:" ~typ:(Objc.id @-> returning void) pso
 
   let set_kernel_buffer (self : t) ?(offset = 0) ~index buffer =
-    Objc.msg_send ~self
-      ~cmd:(selector "setKernelBuffer:offset:atIndex:")
+    msg_send ~self ~select:"setKernelBuffer:offset:atIndex:"
       ~typ:(Objc.id @-> ulong @-> ulong @-> returning void)
       buffer.id (Unsigned.ULong.of_int offset) (Unsigned.ULong.of_int index)
 
   let concurrent_dispatch_threadgroups (self : t) ~threadgroups_per_grid ~threads_per_threadgroup =
     let grid_size_val = Size.to_value threadgroups_per_grid in
     let group_size_val = Size.to_value threads_per_threadgroup in
-    Objc.msg_send ~self
-      ~cmd:(selector "concurrentDispatchThreadgroups:threadsPerThreadgroup:")
+    msg_send ~self ~select:"concurrentDispatchThreadgroups:threadsPerThreadgroup:"
       ~typ:(Size.mtlsize_t @-> Size.mtlsize_t @-> returning void)
       !@grid_size_val !@group_size_val
 
-  let set_barrier (self : t) =
-    Objc.msg_send ~self ~cmd:(selector "setBarrier") ~typ:(returning void)
+  let set_barrier (self : t) = msg_send ~self ~select:"setBarrier" ~typ:(returning void)
 
   (* Skipping setKernelBytes, setThreadgroupMemoryLength, setStageInRegion, reset *)
 end
@@ -1831,7 +1758,7 @@ module IndirectCommandBuffer = struct
   let on_device_with_descriptor (device : Device.t) descriptor ~max_command_count ~options : t =
     let select = "newIndirectCommandBufferWithDescriptor:maxCommandCount:options:" in
     let icb =
-      Objc.msg_send ~self:device ~cmd:(selector select)
+      msg_send ~self:device ~select
         ~typ:(Objc.id @-> ulong @-> ulong @-> returning Objc.id)
         descriptor
         (Unsigned.ULong.of_int max_command_count)
@@ -1840,7 +1767,7 @@ module IndirectCommandBuffer = struct
     gc ~select icb
 
   let get_size (self : t) : int =
-    let size = Objc.msg_send ~self ~cmd:(selector "size") ~typ:(returning ulong) in
+    let size = msg_send ~self ~select:"size" ~typ:(returning ulong) in
     Unsigned.ULong.to_int size
 
   let sexp_of_t t =
@@ -1850,9 +1777,7 @@ module IndirectCommandBuffer = struct
   let indirect_compute_command_at_index (self : t) index : IndirectComputeCommand.t =
     let select = "indirectComputeCommandAtIndex:" in
     let cmd =
-      Objc.msg_send ~self ~cmd:(selector select)
-        ~typ:(ulong @-> returning Objc.id)
-        (Unsigned.ULong.of_int index)
+      msg_send ~self ~select ~typ:(ulong @-> returning Objc.id) (Unsigned.ULong.of_int index)
     in
     gc ~select cmd
 
@@ -1860,9 +1785,7 @@ module IndirectCommandBuffer = struct
 
   let reset_with_range (self : t) range =
     let ns_range = Range.to_value range in
-    Objc.msg_send ~self ~cmd:(selector "resetWithRange:")
-      ~typ:(Range.nsrange_t @-> returning void)
-      !@ns_range
+    msg_send ~self ~select:"resetWithRange:" ~typ:(Range.nsrange_t @-> returning void) !@ns_range
 end
 
 (* === Dynamic Library Placeholder === *)

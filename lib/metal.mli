@@ -1,4 +1,13 @@
+open Runtime
 module CG = CoreGraphics
+
+val debug_msg_send : (select:string -> unit) option ref
+(** A debug callback function that will be called for each Objective-C message send. The callback
+    receives the selector name. Set to [None] to disable debugging. *)
+
+val init_debug_log_to_file : string -> unit
+(** Initialize debug logging to a file. This sets a debug callback that logs timestamps and
+    selectors to the specified file. *)
 
 module Objc : sig
   include module type of Runtime.Objc
@@ -510,7 +519,7 @@ end
 
 (** Log levels for shader debugging. See
     {{:https://developer.apple.com/documentation/metal/mtlloglevel} MTLLogLevel}. *)
-    module LogLevel : sig
+module LogLevel : sig
   (** Log levels for shader logging. See
       {{:https://developer.apple.com/documentation/metal/mtlloglevel} MTLLogLevel}. *)
   type t = Undefined | Debug | Info | Notice | Error | Fault [@@deriving sexp_of]
@@ -520,8 +529,9 @@ end
 end
 
 (** Descriptor for configuring shader logging. See
-    {{:https://developer.apple.com/documentation/metal/mtllogstatedescriptor} MTLLogStateDescriptor}. *)
-    module LogStateDescriptor : sig
+    {{:https://developer.apple.com/documentation/metal/mtllogstatedescriptor} MTLLogStateDescriptor}.
+*)
+module LogStateDescriptor : sig
   type t [@@deriving sexp_of]
   (** Configuration for creating a log state object. See
       {{:https://developer.apple.com/documentation/metal/mtllogstatedescriptor}
@@ -545,7 +555,7 @@ end
 
 (** Container for shader log messages. See
     {{:https://developer.apple.com/documentation/metal/mtllogstate} MTLLogState}. *)
-    module LogState : sig
+module LogState : sig
   type t [@@deriving sexp_of]
   (** A container for shader log messages. See
       {{:https://developer.apple.com/documentation/metal/mtllogstate} MTLLogState}. *)
@@ -569,8 +579,9 @@ end
 end
 
 (** Configuration for creating command queues. See
-    {{:https://developer.apple.com/documentation/metal/mtlcommandqueuedescriptor} MTLCommandQueueDescriptor}. *)
-    module CommandQueueDescriptor : sig
+    {{:https://developer.apple.com/documentation/metal/mtlcommandqueuedescriptor}
+     MTLCommandQueueDescriptor}. *)
+module CommandQueueDescriptor : sig
   type t [@@deriving sexp_of]
   (** Configuration for creating a command queue. See
       {{:https://developer.apple.com/documentation/metal/mtlcommandqueuedescriptor}
