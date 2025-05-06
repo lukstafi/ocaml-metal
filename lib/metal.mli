@@ -1,4 +1,3 @@
-open Runtime
 module CG = CoreGraphics
 
 val debug_msg_send : (select:string -> unit) option ref
