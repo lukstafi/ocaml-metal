@@ -1218,36 +1218,41 @@ end
 (* === Command Infrastructure === *)
 
 module CommandQueue = struct
-  type t = Objc.object_t
+  type t = payload (* Changed from Objc.object_t to payload *)
 
   let on_device (device : Device.t) : t =
     let select = "newCommandQueue" in
-    let queue = msg_send ~self:device ~select ~typ:(returning Objc.id) in
-    gc ~select queue
+    let queue_id = msg_send ~self:device ~select ~typ:(returning Objc.id) in
+    { id = gc ~select queue_id; lifetime = Lifetime () } (* Provide an empty lifetime *)
 
   let on_device_with_max_buffer_count (device : Device.t) max_count : t =
     let select = "newCommandQueueWithMaxCommandBufferCount:" in
-    let queue =
+    let queue_id =
       msg_send ~self:device ~select
         ~typ:(ulong @-> returning Objc.id)
         (Unsigned.ULong.of_int max_count)
     in
-    gc ~select queue
+    { id = gc ~select queue_id; lifetime = Lifetime () } (* Provide an empty lifetime *)
 
   let on_device_with_descriptor (device : Device.t) (descriptor : CommandQueueDescriptor.t) : t =
     let select = "newCommandQueueWithDescriptor:" in
-    let queue = msg_send ~self:device ~select ~typ:(Objc.id @-> returning Objc.id) descriptor.id in
-    gc ~select queue
+    let queue_id = msg_send ~self:device ~select ~typ:(Objc.id @-> returning Objc.id) descriptor.id in
+    (*
+      The crucial change: The new CommandQueue.t OCaml value now holds onto the
+      descriptor's lifetime. This descriptor's lifetime, in turn, holds onto
+      the LogState's lifetime, which holds the OCaml closure and C block.
+    *)
+    { id = gc ~select queue_id; lifetime = descriptor.lifetime }
 
-  let set_label (self : t) label = Resource.set_label self label
-  let get_label (self : t) = Resource.get_label self
-  let get_device (self : t) = Resource.get_device self
+  let set_label (self : t) label = Resource.set_label self.id label
+  let get_label (self : t) = Resource.get_label self.id
+  let get_device (self : t) = Resource.get_device self.id
 
   (* insertDebugCaptureBoundary is deprecated *)
   let sexp_of_t t =
     let label = get_label t in
     Sexplib0.Sexp.message "<CommandQueue>"
-      [ ("label", Atom label); ("device", Device.sexp_of_t (get_device t)) ]
+      [ ("label", Atom label); ("device", Device.sexp_of_t (get_device t)) ] (* Access t.id for device *)
 end
 
 module CommandBuffer = struct
@@ -1257,23 +1262,42 @@ module CommandBuffer = struct
   let get_label (self : t) = Resource.get_label self.id
   let get_device (self : t) = Resource.get_device self.id
 
-  let get_command_queue (self : t) : CommandQueue.t =
-    msg_send ~self:self.id ~select:"commandQueue" ~typ:(returning Objc.id)
+  let get_command_queue (self : t) : CommandQueue.t = (* Return type is still CommandQueue.t, which is now payload *)
+    let cq_id = msg_send ~self:self.id ~select:"commandQueue" ~typ:(returning Objc.id) in
+    (* If we need to return a CommandQueue.t (payload), we must also attach its lifetime.
+       The command buffer's lifetime should ideally include the queue's lifetime
+       if the queue was created with a descriptor that had important OCaml lifetimes.
+       A simple way is to take the command buffer's own lifetime, assuming it would be
+       transitively kept alive by whatever keeps the command buffer alive.
+       However, the command queue is a distinct entity.
+       A more robust way would be if the command buffer's lifetime itself included
+       a reference to the OCaml queue payload it was created from.
+
+       For now, let's assume the caller manages the queue's lifetime separately,
+       or the queue's lifetime is empty if created without a descriptor.
+       This specific getter might need more thought if queues can be GC'd while buffers exist.
+       Given our current problem, focusing on queue creation is key.
+       Let's construct a new payload here, assuming the cq_id is what matters,
+       and the lifetime should ideally be the one from the original queue.
+       This requires CommandBuffer.on_queue to store the queue's payload.
+    *)
+    { id = cq_id; lifetime = self.lifetime } (* Simplification: use self's lifetime, or an empty one if more correct *)
+
 
   let get_retained_references (self : t) : bool =
     msg_send ~self:self.id ~select:"retainedReferences" ~typ:(returning bool)
 
-  let on_queue (queue : CommandQueue.t) : t =
-    (* Returns CommandBuffer.t *)
+  let on_queue (queue : CommandQueue.t) : t = (* queue is now payload *)
     let select = "commandBuffer" in
-    let id = msg_send ~self:queue ~select ~typ:(returning Objc.id) in
-    { id = gc ~select id; lifetime = Lifetime () }
+    let id = msg_send ~self:queue.id ~select ~typ:(returning Objc.id) in
+    (* The command buffer should keep the queue's lifetime alive *)
+    { id = gc ~select id; lifetime = queue.lifetime }
 
-  let on_queue_with_unretained_references (queue : CommandQueue.t) : t =
-    (* Returns CommandBuffer.t *)
+  let on_queue_with_unretained_references (queue : CommandQueue.t) : t = (* queue is now payload *)
     let select = "commandBufferWithUnretainedReferences" in
-    let id = msg_send ~self:queue ~select ~typ:(returning Objc.id) in
-    { id = gc ~select id; lifetime = Lifetime () }
+    let id = msg_send ~self:queue.id ~select ~typ:(returning Objc.id) in
+    (* The command buffer should keep the queue's lifetime alive *)
+    { id = gc ~select id; lifetime = queue.lifetime }
 
   (* command_buffer_with_descriptor requires MTLCommandBufferDescriptor, skipping for now *)
 

@@ -616,8 +616,12 @@ module CommandQueue : sig
 
   val on_device_with_descriptor : Device.t -> CommandQueueDescriptor.t -> t
   (** Creates a command queue using the specified descriptor. See
-      {{:https://developer.apple.com/documentation/metal/mtldevice/4379070-newcommandqueuewithdescriptor}
-       newCommandQueueWithDescriptor:}. *)
+      {{:https://developer.apple.com/documentation/metal/mtldevice/makecommandqueue(descriptor:)?language=objc}
+       newCommandQueueWithDescriptor:}.
+
+      The returned OCaml value will ensure that any OCaml objects referenced by the descriptor's
+      lifetime (e.g., for log handlers) are kept alive as long as this command queue value is alive.
+  *)
 
   val set_label : t -> string -> unit
   val get_label : t -> string
