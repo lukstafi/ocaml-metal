@@ -1,4 +1,4 @@
-## [0.1.0] -- 2025-04-27
+## [0.1.0] -- 2025-05-06
 
 ### Added
 
@@ -8,4 +8,10 @@
 - `MTLCopyAllDevices`
 - More complete coverage for `MTLCompileOptions`.
 - README (Claude-generated)
-- TODO: `MTLCommandQueueDescriptor`
+- `MTLCommandQueueDescriptor`
+- Logging from inside kernels: `LogState` etc.
+- Debug logging of all msg_send calls.
+
+### Fixed
+
+- Lifetime for logging handlers.

@@ -18,10 +18,8 @@ See also [Camlkit: OCaml bindings to macOS and iOS Cocoa frameworks](https://git
 
 ### Prerequisites
 
-- macOS operating system (Metal is Apple-specific)
+- macOS Ventura or newer (for Metal Shading Language version 3.2 or later)
 - OCaml 4.14 or later
-- Dune build system
-- OPAM package manager
 
 ### Installing from OPAM
 
@@ -130,10 +128,10 @@ let result = Ctypes.CArray.from_ptr result_ptr array_length
 The following environment variables can be helpful in debugging Metal applications:
 
 ```shell
-MTL_DEBUG_LAYER=1 MTL_SHADER_VALIDATION=1 MTL_SHADER_VALIDATION_REPORT_TO_STDERR=1
+MTL_DEBUG_LAYER=1 MTL_SHADER_VALIDATION=1 MTL_SHADER_VALIDATION_REPORT_TO_STDERR=1 NS_ZOMBIE_ENABLED=YES
 ```
 
-But note the error: `-[MTLGPUDebugDevice newIndirectCommandBufferWithDescriptor:maxCommandCount:options:]:1406: failed assertion 'Indirect Command Buffers are not currently supported with Shader Validation'`.
+But note some devices (e.g. GitHub CI) might give the error: `-[MTLGPUDebugDevice newIndirectCommandBufferWithDescriptor:maxCommandCount:options:]:1406: failed assertion 'Indirect Command Buffers are not currently supported with Shader Validation'`.
 
 ## Features
 
