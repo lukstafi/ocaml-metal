@@ -2,3 +2,13 @@
  (name properties)
  (modules properties)
  (libraries metal camlkit-base.runtime))
+
+(executable
+ (name logging_tests)
+ (modules logging_tests)
+ (libraries metal camlkit-base.runtime))
+
+(executable
+ (name saxpy)
+ (modules saxpy)
+ (libraries metal camlkit-base.runtime))

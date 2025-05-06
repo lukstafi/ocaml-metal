@@ -8,11 +8,11 @@ module Block = struct
 
   let make' f ~typ =
     let b = Ctypes_memory.make t in
-    setf b isa self;
+    setf b isa (Objc.get_class "__NSStackBlock__");
     setf b descriptor desc_ptr;
     setf b invoke
       (coerce (Foreign.funptr ~runtime_lock:true ~thread_registration:true typ) (ptr void) f);
-    setf b flags block_is_global;
+    setf b flags 0;
     allocate t b |> coerce (ptr t) (ptr void)
 
   (** Create a global block which encapsulates the code for execution at a later time. *)
