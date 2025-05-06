@@ -270,13 +270,79 @@ module Device = struct
     let devices_nsarray = gc ~select (Foreign.foreign select (void @-> returning Objc.id) ()) in
     from_nsarray devices_nsarray
 
+  module GPUFamily = struct
+    type t =
+      | Apple1
+      | Apple2
+      | Apple3
+      | Apple4
+      | Apple5
+      | Apple6
+      | Apple7
+      | Apple8
+      | Apple9
+      | Mac1
+      | Mac2
+      | Common1
+      | Common2
+      | Common3
+      | MacCatalyst1
+      | MacCatalyst2
+      | Metal3
+    [@@deriving sexp_of]
+
+    let to_int = function
+      | Apple1 -> 1001
+      | Apple2 -> 1002
+      | Apple3 -> 1003
+      | Apple4 -> 1004
+      | Apple5 -> 1005
+      | Apple6 -> 1006
+      | Apple7 -> 1007
+      | Apple8 -> 1008
+      | Apple9 -> 1009
+      | Mac1 -> 2001
+      | Mac2 -> 2002
+      | Common1 -> 3001
+      | Common2 -> 3002
+      | Common3 -> 3003
+      | MacCatalyst1 -> 4001
+      | MacCatalyst2 -> 4002
+      | Metal3 -> 5001
+
+    let from_int = function
+      | 1001 -> Apple1
+      | 1002 -> Apple2
+      | 1003 -> Apple3
+      | 1004 -> Apple4
+      | 1005 -> Apple5
+      | 1006 -> Apple6
+      | 1007 -> Apple7
+      | 1008 -> Apple8
+      | 1009 -> Apple9
+      | 2001 -> Mac1
+      | 2002 -> Mac2
+      | 3001 -> Common1
+      | 3002 -> Common2
+      | 3003 -> Common3
+      | 4001 -> MacCatalyst1
+      | 4002 -> MacCatalyst2
+      | 5001 -> Metal3
+      | _ -> invalid_arg "Unknown MTLGPUFamily value"
+  end
+
+  let supports_family (self : t) (family : GPUFamily.t) : bool =
+    msg_send ~self ~select:"supportsFamily:"
+      ~typ:(long @-> returning bool)
+      (Signed.Long.of_int (GPUFamily.to_int family))
+
   module ArgumentBuffersTier = struct
     type t = Tier1 | Tier2 [@@deriving sexp_of]
 
-    let from_llong (i : Signed.LLong.t) =
-      if Signed.LLong.equal i (Signed.LLong.of_int 0) then Tier1
-      else if Signed.LLong.equal i (Signed.LLong.of_int 1) then Tier2
-      else invalid_arg ("Unknown ArgumentBuffersTier: " ^ Signed.LLong.to_string i)
+    let from_ulong (i : Unsigned.ULong.t) =
+      if Unsigned.ULong.equal i Unsigned.ULong.zero then Tier1
+      else if Unsigned.ULong.equal i Unsigned.ULong.one then Tier2
+      else invalid_arg ("Unknown ArgumentBuffersTier: " ^ Unsigned.ULong.to_string i)
 
     let to_ulong (t : t) : Unsigned.ulong =
       match t with Tier1 -> Unsigned.ULong.zero | Tier2 -> Unsigned.ULong.one
@@ -307,6 +373,7 @@ module Device = struct
     has_unified_memory : bool;
     peer_count : ulong;
     peer_group_id : ullong;
+    supported_gpu_families : GPUFamily.t list;
   }
   [@@deriving sexp_of]
 
@@ -332,10 +399,10 @@ module Device = struct
       msg_send ~self ~select:"maxThreadgroupMemoryLength" ~typ:(returning ulong)
     in
     let argument_buffers_support_val =
-      msg_send ~self ~select:"argumentBuffersSupport" ~typ:(returning llong)
+      msg_send ~self ~select:"argumentBuffersSupport" ~typ:(returning ulong)
       (* Enum usually maps to long long *)
     in
-    let argument_buffers_support = ArgumentBuffersTier.from_llong argument_buffers_support_val in
+    let argument_buffers_support = ArgumentBuffersTier.from_ulong argument_buffers_support_val in
     let recommended_max_working_set_size =
       msg_send ~self ~select:"recommendedMaxWorkingSetSize" ~typ:(returning ullong)
     in
@@ -345,6 +412,33 @@ module Device = struct
     let has_unified_memory = msg_send ~self ~select:"hasUnifiedMemory" ~typ:(returning bool) in
     let peer_count = msg_send ~self ~select:"peerCount" ~typ:(returning ulong) in
     let peer_group_id = msg_send ~self ~select:"peerGroupID" ~typ:(returning ullong) in
+
+    (* Test each GPU family and collect the supported ones *)
+    let all_families =
+      [
+        GPUFamily.Apple1;
+        GPUFamily.Apple2;
+        GPUFamily.Apple3;
+        GPUFamily.Apple4;
+        GPUFamily.Apple5;
+        GPUFamily.Apple6;
+        GPUFamily.Apple7;
+        GPUFamily.Apple8;
+        GPUFamily.Apple9;
+        GPUFamily.Mac1;
+        GPUFamily.Mac2;
+        GPUFamily.Common1;
+        GPUFamily.Common2;
+        GPUFamily.Common3;
+        GPUFamily.MacCatalyst1;
+        GPUFamily.MacCatalyst2;
+        GPUFamily.Metal3;
+      ]
+    in
+    let supported_gpu_families =
+      List.filter (fun family -> supports_family self family) all_families
+    in
+
     {
       name;
       registry_id;
@@ -359,6 +453,7 @@ module Device = struct
       has_unified_memory;
       peer_count;
       peer_group_id;
+      supported_gpu_families;
     }
 end
 
@@ -1223,7 +1318,8 @@ module CommandQueue = struct
   let on_device (device : Device.t) : t =
     let select = "newCommandQueue" in
     let queue_id = msg_send ~self:device ~select ~typ:(returning Objc.id) in
-    { id = gc ~select queue_id; lifetime = Lifetime () } (* Provide an empty lifetime *)
+    { id = gc ~select queue_id; lifetime = Lifetime () }
+  (* Provide an empty lifetime *)
 
   let on_device_with_max_buffer_count (device : Device.t) max_count : t =
     let select = "newCommandQueueWithMaxCommandBufferCount:" in
@@ -1232,16 +1328,17 @@ module CommandQueue = struct
         ~typ:(ulong @-> returning Objc.id)
         (Unsigned.ULong.of_int max_count)
     in
-    { id = gc ~select queue_id; lifetime = Lifetime () } (* Provide an empty lifetime *)
+    { id = gc ~select queue_id; lifetime = Lifetime () }
+  (* Provide an empty lifetime *)
 
   let on_device_with_descriptor (device : Device.t) (descriptor : CommandQueueDescriptor.t) : t =
     let select = "newCommandQueueWithDescriptor:" in
-    let queue_id = msg_send ~self:device ~select ~typ:(Objc.id @-> returning Objc.id) descriptor.id in
-    (*
-      The crucial change: The new CommandQueue.t OCaml value now holds onto the
-      descriptor's lifetime. This descriptor's lifetime, in turn, holds onto
-      the LogState's lifetime, which holds the OCaml closure and C block.
-    *)
+    let queue_id =
+      msg_send ~self:device ~select ~typ:(Objc.id @-> returning Objc.id) descriptor.id
+    in
+    (* The crucial change: The new CommandQueue.t OCaml value now holds onto the descriptor's
+       lifetime. This descriptor's lifetime, in turn, holds onto the LogState's lifetime, which
+       holds the OCaml closure and C block. *)
     { id = gc ~select queue_id; lifetime = descriptor.lifetime }
 
   let set_label (self : t) label = Resource.set_label self.id label
@@ -1252,7 +1349,8 @@ module CommandQueue = struct
   let sexp_of_t t =
     let label = get_label t in
     Sexplib0.Sexp.message "<CommandQueue>"
-      [ ("label", Atom label); ("device", Device.sexp_of_t (get_device t)) ] (* Access t.id for device *)
+      [ ("label", Atom label); ("device", Device.sexp_of_t (get_device t)) ]
+  (* Access t.id for device *)
 end
 
 module CommandBuffer = struct
@@ -1262,38 +1360,38 @@ module CommandBuffer = struct
   let get_label (self : t) = Resource.get_label self.id
   let get_device (self : t) = Resource.get_device self.id
 
-  let get_command_queue (self : t) : CommandQueue.t = (* Return type is still CommandQueue.t, which is now payload *)
+  let get_command_queue (self : t) : CommandQueue.t =
+    (* Return type is still CommandQueue.t, which is now payload *)
     let cq_id = msg_send ~self:self.id ~select:"commandQueue" ~typ:(returning Objc.id) in
-    (* If we need to return a CommandQueue.t (payload), we must also attach its lifetime.
-       The command buffer's lifetime should ideally include the queue's lifetime
-       if the queue was created with a descriptor that had important OCaml lifetimes.
-       A simple way is to take the command buffer's own lifetime, assuming it would be
-       transitively kept alive by whatever keeps the command buffer alive.
-       However, the command queue is a distinct entity.
-       A more robust way would be if the command buffer's lifetime itself included
-       a reference to the OCaml queue payload it was created from.
+    (* If we need to return a CommandQueue.t (payload), we must also attach its lifetime. The
+       command buffer's lifetime should ideally include the queue's lifetime if the queue was
+       created with a descriptor that had important OCaml lifetimes. A simple way is to take the
+       command buffer's own lifetime, assuming it would be transitively kept alive by whatever keeps
+       the command buffer alive. However, the command queue is a distinct entity. A more robust way
+       would be if the command buffer's lifetime itself included a reference to the OCaml queue
+       payload it was created from.
 
-       For now, let's assume the caller manages the queue's lifetime separately,
-       or the queue's lifetime is empty if created without a descriptor.
-       This specific getter might need more thought if queues can be GC'd while buffers exist.
-       Given our current problem, focusing on queue creation is key.
-       Let's construct a new payload here, assuming the cq_id is what matters,
-       and the lifetime should ideally be the one from the original queue.
-       This requires CommandBuffer.on_queue to store the queue's payload.
-    *)
-    { id = cq_id; lifetime = self.lifetime } (* Simplification: use self's lifetime, or an empty one if more correct *)
-
+       For now, let's assume the caller manages the queue's lifetime separately, or the queue's
+       lifetime is empty if created without a descriptor. This specific getter might need more
+       thought if queues can be GC'd while buffers exist. Given our current problem, focusing on
+       queue creation is key. Let's construct a new payload here, assuming the cq_id is what
+       matters, and the lifetime should ideally be the one from the original queue. This requires
+       CommandBuffer.on_queue to store the queue's payload. *)
+    { id = cq_id; lifetime = self.lifetime }
+  (* Simplification: use self's lifetime, or an empty one if more correct *)
 
   let get_retained_references (self : t) : bool =
     msg_send ~self:self.id ~select:"retainedReferences" ~typ:(returning bool)
 
-  let on_queue (queue : CommandQueue.t) : t = (* queue is now payload *)
+  let on_queue (queue : CommandQueue.t) : t =
+    (* queue is now payload *)
     let select = "commandBuffer" in
     let id = msg_send ~self:queue.id ~select ~typ:(returning Objc.id) in
     (* The command buffer should keep the queue's lifetime alive *)
     { id = gc ~select id; lifetime = queue.lifetime }
 
-  let on_queue_with_unretained_references (queue : CommandQueue.t) : t = (* queue is now payload *)
+  let on_queue_with_unretained_references (queue : CommandQueue.t) : t =
+    (* queue is now payload *)
     let select = "commandBufferWithUnretainedReferences" in
     let id = msg_send ~self:queue.id ~select ~typ:(returning Objc.id) in
     (* The command buffer should keep the queue's lifetime alive *)

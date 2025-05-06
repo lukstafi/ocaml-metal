@@ -76,6 +76,38 @@ module Device : sig
       {{:https://developer.apple.com/documentation/metal/mtlcopyalldevices()/} MTLCopyAllDevices}.
   *)
 
+  (** Represents a Metal GPU family, categorizing devices by feature set and capability. See
+      {{:https://developer.apple.com/documentation/metal/mtlgpufamily} MTLGPUFamily}. *)
+  module GPUFamily : sig
+    type t =
+      | Apple1
+      | Apple2
+      | Apple3
+      | Apple4
+      | Apple5
+      | Apple6
+      | Apple7
+      | Apple8
+      | Apple9
+      | Mac1
+      | Mac2
+      | Common1
+      | Common2
+      | Common3
+      | MacCatalyst1
+      | MacCatalyst2
+      | Metal3
+    [@@deriving sexp_of]
+
+    val to_int : t -> int
+    val from_int : int -> t
+  end
+
+  val supports_family : t -> GPUFamily.t -> bool
+  (** Checks if the device supports the specified GPU family. See
+      {{:https://developer.apple.com/documentation/metal/mtldevice/supportsfamily(_:)?language=objc}
+       supportsFamiliy:}. *)
+
   (** Describes the level of support for argument buffers. See
       {{:https://developer.apple.com/documentation/metal/mtlargumentbufferstier}
        MTLArgumentBuffersTier}. *)
@@ -99,6 +131,7 @@ module Device : sig
     has_unified_memory : bool;
     peer_count : Unsigned.ULong.t;
     peer_group_id : Unsigned.ULLong.t;
+    supported_gpu_families : GPUFamily.t list;
   }
   [@@deriving sexp_of]
   (** Metal device attributes relevant for compute tasks. *)
