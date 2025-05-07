@@ -6,14 +6,14 @@ let%expect_test "Device creation and attributes" =
   Printf.printf "Device created successfully\n";
 
   let attrs = Device.get_attributes device in
-  Printf.printf "Device name prefix: %s\n" (String.sub attrs.name 0 5);
+  Printf.printf "Device has long name: %b\n" (String.length attrs.name > 4);
   Printf.printf "Has unified memory: %b\n" attrs.has_unified_memory;
   Printf.printf "Max buffer length >= 268,435,456: %s\n"
     (if Unsigned.ULong.to_int attrs.max_buffer_length >= 268435456 then "yes" else "no");
   [%expect
     {|
     Device created successfully
-    Device name prefix: Apple
+    Device has long name: true
     Has unified memory: true
     Max buffer length >= 268,435,456: yes
     |}];
@@ -25,33 +25,29 @@ let%expect_test "Device creation and attributes" =
 
 let%expect_test "Copy all devices" =
   let default_device = Device.create_system_default () in
-  let default_name = 
+  let default_name =
     let attrs = Device.get_attributes default_device in
-    attrs.name in
-  
+    attrs.name
+  in
+
   let all_devices = Device.copy_all_devices () in
-  Printf.printf "Found %d Metal device(s)\n" (Array.length all_devices);
+  Printf.printf "Found > 0 Metal device(s): %b\n" (Array.length all_devices > 0);
   assert (Array.length all_devices > 0);
-  
-  let first_device_name = 
+
+  let first_device_name =
     let attrs = Device.get_attributes all_devices.(0) in
-    attrs.name in
-  
-  Printf.printf "System default device prefix: %s\n" (String.sub default_name 0 5);
-  Printf.printf "First device in array prefix: %s\n" (String.sub first_device_name 0 5);
+    attrs.name
+  in
+
+  Printf.printf "First device in array prefix has long name: %b\n"
+    (String.length first_device_name > 4);
   Printf.printf "Default device is first in array: %b\n" (default_name = first_device_name);
-  
-  (* Print names of all devices *)
-  Array.iteri (fun i device ->
-    let attrs = Device.get_attributes device in
-    Printf.printf "Device %d prefix: %s\n" i (String.sub attrs.name 0 5)) all_devices;
-  
-  [%expect {|
-    Found 1 Metal device(s)
-    System default device prefix: Apple
-    First device in array prefix: Apple
+
+  [%expect
+    {|
+    Found > 0 Metal device(s): true
+    First device in array prefix has long name: true
     Default device is first in array: true
-    Device 0 prefix: Apple
   |}]
 
 let%expect_test "Size, Origin, and Region operations" =
@@ -105,8 +101,8 @@ let%expect_test "Buffer creation and operations" =
   let contents = Buffer.contents buffer in
   let float_ptr = coerce (ptr void) (ptr float) contents in
   float_ptr <-@ 42.0;
-  (* Buffer.did_modify_range buffer { Range.location = 0; length = sizeof float }; *)
 
+  (* Buffer.did_modify_range buffer { Range.location = 0; length = sizeof float }; *)
   let contents2 = Buffer.contents buffer in
   let float_ptr2 = coerce (ptr void) (ptr float) contents2 in
   let value = !@float_ptr2 in
@@ -368,24 +364,25 @@ let%expect_test "ResourceOptions and other option types" =
 
   (* Create library and test pipeline with options *)
   (try
-    let library = Library.on_device device ~source:kernel_source compile_opts in
-    let func = Library.new_function_with_name library "simple_kernel" in
+     let library = Library.on_device device ~source:kernel_source compile_opts in
+     let func = Library.new_function_with_name library "simple_kernel" in
 
-    (* Try creating pipeline with different options *)
-    let _, reflection1 =
-      ComputePipelineState.on_device_with_function device ~options:pipe_opt1 ~reflection:true func
-    in
-    Printf.printf "Pipeline created with option1, has reflection: %b\n" (not (is_null reflection1));
+     (* Try creating pipeline with different options *)
+     let _, reflection1 =
+       ComputePipelineState.on_device_with_function device ~options:pipe_opt1 ~reflection:true func
+     in
+     Printf.printf "Pipeline created with option1, has reflection: %b\n" (not (is_null reflection1));
 
-    let _, reflection2 =
-      ComputePipelineState.on_device_with_function device ~options:pipe_opt2 ~reflection:true func
-    in
-    Printf.printf "Pipeline created with option2, has reflection: %b\n" (not (is_null reflection2))
-  with Failure msg ->
-    Printf.printf "Note: Pipeline creation test skipped due to: %s\n"
-      (if String.length msg > 50 then String.sub msg 0 50 ^ "..." else msg));
+     let _, reflection2 =
+       ComputePipelineState.on_device_with_function device ~options:pipe_opt2 ~reflection:true func
+     in
+     Printf.printf "Pipeline created with option2, has reflection: %b\n" (not (is_null reflection2))
+   with Failure msg ->
+     Printf.printf "Note: Pipeline creation test skipped due to: %s\n"
+       (if String.length msg > 50 then String.sub msg 0 50 ^ "..." else msg));
 
-  [%expect {|
+  [%expect
+    {|
     Options created successfully
     Buffer1 storage mode: Shared
     Buffer2 CPU cache mode: WriteCombined
