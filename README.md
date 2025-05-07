@@ -16,10 +16,7 @@ See also [Camlkit: OCaml bindings to macOS and iOS Cocoa frameworks](https://git
 
 ## Installation
 
-### Prerequisites
-
-- macOS Ventura or newer (for Metal Shading Language version 3.2 or later)
-- OCaml 4.14 or later
+Note: the full functionality requires macOS Ventura or newer (for Metal Shading Language version 3.2 or later). Attempting to use unsupported functionality, like logging for MSL before 3.2, will cause non-graceful crashes.
 
 ### Installing from OPAM
 
