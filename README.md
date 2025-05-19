@@ -130,6 +130,9 @@ MTL_DEBUG_LAYER=1 MTL_SHADER_VALIDATION=1 MTL_SHADER_VALIDATION_REPORT_TO_STDERR
 
 But note some devices (e.g. GitHub CI) might give the error: `-[MTLGPUDebugDevice newIndirectCommandBufferWithDescriptor:maxCommandCount:options:]:1406: failed assertion 'Indirect Command Buffers are not currently supported with Shader Validation'`.
 
+Note: `os_log` functions seem to be limited to 7 arguments, more arguments might lead to the error: `newComputePipelineStateWithFunction:options:reflection:error:
+           failed: Compiler encountered an internal error`.
+
 ## Features
 
 - Low-level bindings to essential Metal compute capabilities
