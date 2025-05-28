@@ -2,6 +2,8 @@
 
 OCaml bindings to selected parts of Apple Metal, for general compute applications.
 
+This project is sponsored by [Ahrefs](https://ocaml.org/success-stories/peta-byte-scale-web-crawler)! [Visit the Ahrefs website](https://ahrefs.com/).
+
 ## Overview
 
 OCaml-Metal provides OCaml bindings to Apple's Metal framework, focusing specifically on general compute applications. This library allows OCaml developers to leverage the power of GPU computing on macOS and iOS devices.
