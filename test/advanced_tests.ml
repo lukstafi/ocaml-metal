@@ -1,7 +1,7 @@
 open Ctypes
 open Metal
 
-let%expect_test "Blit encoder operations" =
+let test_blit_encoder_operations () =
   let device = Device.create_system_default () in
   let queue = CommandQueue.on_device device in
 
@@ -39,22 +39,9 @@ let%expect_test "Blit encoder operations" =
   for i = 0 to 9 do
     let value = !@(dest_ptr +@ i) in
     Printf.printf "Dest buffer[%d] = %g\n" i value
-  done;
-  [%expect
-    {|
-    Dest buffer[0] = 0
-    Dest buffer[1] = 10
-    Dest buffer[2] = 20
-    Dest buffer[3] = 30
-    Dest buffer[4] = 40
-    Dest buffer[5] = 50
-    Dest buffer[6] = 60
-    Dest buffer[7] = 70
-    Dest buffer[8] = 80
-    Dest buffer[9] = 90
-  |}]
+  done
 
-let%expect_test "Blit fill operations" =
+let test_blit_fill_operations () =
   let device = Device.create_system_default () in
   let queue = CommandQueue.on_device device in
 
@@ -82,28 +69,9 @@ let%expect_test "Blit fill operations" =
   for i = 0 to 15 do
     let value = !@(ptr +@ i) in
     Printf.printf "buffer[%d] = %d\n" i (Unsigned.UInt8.to_int value)
-  done;
-  [%expect
-    {|
-    buffer[0] = 42
-    buffer[1] = 42
-    buffer[2] = 42
-    buffer[3] = 42
-    buffer[4] = 42
-    buffer[5] = 42
-    buffer[6] = 42
-    buffer[7] = 42
-    buffer[8] = 42
-    buffer[9] = 42
-    buffer[10] = 42
-    buffer[11] = 42
-    buffer[12] = 42
-    buffer[13] = 42
-    buffer[14] = 42
-    buffer[15] = 42
-  |}]
+  done
 
-let%expect_test "Event synchronization" =
+let test_event_synchronization () =
   let device = Device.create_system_default () in
   let queue = CommandQueue.on_device device in
 
@@ -141,13 +109,9 @@ let%expect_test "Event synchronization" =
 
   (* Check the final event value *)
   let final_value = SharedEvent.get_signaled_value event in
-  Printf.printf "Final event value: %s\n" (Unsigned.ULLong.to_string final_value);
-  [%expect {|
-    Initial event value: 0
-    Final event value: 1
-  |}]
+  Printf.printf "Final event value: %s\n" (Unsigned.ULLong.to_string final_value)
 
-let%expect_test "Fence synchronization in blit encoder" =
+let test_fence_synchronization_in_blit_encoder () =
   let device = Device.create_system_default () in
   let queue = CommandQueue.on_device device in
 
@@ -197,23 +161,10 @@ let%expect_test "Fence synchronization in blit encoder" =
   for i = 0 to 15 do
     let value = !@(dest_ptr +@ i) in
     Printf.printf "dest_buffer[%d] = %d\n" i (Unsigned.UInt8.to_int value)
-  done;
-  [%expect
-    {|
-    dest_buffer[0] = 0
-    dest_buffer[1] = 1
-    dest_buffer[2] = 2
-    dest_buffer[3] = 3
-    dest_buffer[4] = 4
-    dest_buffer[5] = 5
-    dest_buffer[6] = 6
-    dest_buffer[7] = 7
-    dest_buffer[8] = 8
-    dest_buffer[9] = 9
-    dest_buffer[10] = 10
-    dest_buffer[11] = 11
-    dest_buffer[12] = 12
-    dest_buffer[13] = 13
-    dest_buffer[14] = 14
-    dest_buffer[15] = 15
-  |}]
+  done
+
+let () =
+  test_blit_encoder_operations ();
+  test_blit_fill_operations ();
+  test_event_synchronization ();
+  test_fence_synchronization_in_blit_encoder ()

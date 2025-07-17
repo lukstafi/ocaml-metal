@@ -1,0 +1,38 @@
+Device created successfully
+Device has long name: true
+Has unified memory: true
+Max buffer length >= 268,435,456: yes
+Found > 0 Metal device(s): true
+First device in array prefix has long name: true
+Default device is first in array: true
+Size: width=100, height=200, depth=300
+Size conversion preserved: true
+Origin: x=10, y=20, z=30
+Region: origin=(10,20,30), size=(100,200,300)
+Buffer length: 1024
+Buffer value: 42.000000
+Buffer label: Test buffer
+Queue label: Test queue
+Command buffer label: Test command buffer
+Initial status: NotEnqueued
+Final status: Completed
+Command buffer has error: false
+Library label: Test library
+Library contains 1 functions
+Function: test_kernel
+Function name: test_kernel
+Function type: Kernel
+Max total threads per threadgroup: 1024
+Thread execution width: 32
+Static threadgroup memory length: 0
+Pipeline descriptor label: Test pipeline descriptor
+Second pipeline thread width: 32
+Options created successfully
+Buffer1 storage mode: Shared
+Buffer2 CPU cache mode: WriteCombined
+Buffer3 storage mode: Private
+Fast math enabled: true
+Language version: 2.4
+Optimization level: Performance
+Pipeline created with option1, has reflection: true
+Pipeline created with option2, has reflection: true

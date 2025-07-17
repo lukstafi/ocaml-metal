@@ -1,0 +1,30 @@
+Metal device created successfully.
+Command queue created successfully.
+Metal buffers created successfully.
+Data copied to buffers.
+Kernel function 'saxpy_kernel' obtained.
+Command buffer and encoder created.
+Kernel dispatched.
+Command buffer committed.
+Computation completed.
+Starting verification of results...
+At index 0: Expected 1048576.000000, Got 1048576.000000
+At index 1: Expected 1048577.000000, Got 1048577.000000
+At index 2: Expected 1048578.000000, Got 1048578.000000
+At index 3: Expected 1048579.000000, Got 1048579.000000
+At index 4: Expected 1048580.000000, Got 1048580.000000
+At index 5: Expected 1048581.000000, Got 1048581.000000
+At index 6: Expected 1048582.000000, Got 1048582.000000
+At index 7: Expected 1048583.000000, Got 1048583.000000
+At index 8: Expected 1048584.000000, Got 1048584.000000
+At index 9: Expected 1048585.000000, Got 1048585.000000
+At index 1048567: Expected 2097143.000000, Got 2097143.000000
+At index 1048568: Expected 2097144.000000, Got 2097144.000000
+At index 1048569: Expected 2097145.000000, Got 2097145.000000
+At index 1048570: Expected 2097146.000000, Got 2097146.000000
+At index 1048571: Expected 2097147.000000, Got 2097147.000000
+At index 1048572: Expected 2097148.000000, Got 2097148.000000
+At index 1048573: Expected 2097149.000000, Got 2097149.000000
+At index 1048574: Expected 2097150.000000, Got 2097150.000000
+At index 1048575: Expected 2097151.000000, Got 2097151.000000
+Verification successful!

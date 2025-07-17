@@ -1,7 +1,7 @@
 open Ctypes
 open Metal
 
-let%expect_test "Metal shader logging" =
+let test_metal_shader_logging () =
   let device = Device.create_system_default () in
   Printf.printf "Device created successfully\n";
   
@@ -119,49 +119,7 @@ let%expect_test "Metal shader logging" =
   
   (* Print captured logs (in reverse order to get chronological order) *)
   Printf.printf "\nCaptured shader logs:\n";
-  List.rev !captured_logs |> List.iter (Printf.printf "%s\n");
-  
-  [%expect {|
-    Device created successfully
-    Buffer[0] = 2.000000 (expected 2.000000)
-    Buffer[1] = 4.000000 (expected 4.000000)
-    Buffer[2] = 6.000000 (expected 6.000000)
-    Buffer[3] = 8.000000 (expected 8.000000)
-    Buffer[4] = 10.000000 (expected 10.000000)
-    Buffer[5] = 12.000000 (expected 12.000000)
-    Buffer[6] = 14.000000 (expected 14.000000)
-    Buffer[7] = 16.000000 (expected 16.000000)
+  List.rev !captured_logs |> List.iter (Printf.printf "%s\n")
 
-    Captured shader logs:
-    [Notice] com.custom_log.subsystem/custom category: Thread 0 started processing
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 1 started processing
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 2 started processing
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 3 started processing
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 4 started processing
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 5 started processing
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 6 started processing
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 7 started processing
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 0 calculation complete: 2.000000
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 1 calculation complete: 4.000000
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 2 calculation complete: 6.000000
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 3 calculation complete: 8.000000
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 4 calculation complete: 10.000000
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 5 calculation complete: 12.000000
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 6 calculation complete: 14.000000
-
-    [Notice] com.custom_log.subsystem/custom category: Thread 7 calculation complete: 16.000000
-    |}]
+let () =
+  test_metal_shader_logging ()

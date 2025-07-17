@@ -1,0 +1,11 @@
+Expected error occurred: newLibraryWithSource:options:error: failed: program_source:6:7: error: unknown type name 'this_is_a_...
+Expected error occurred: Failed to create object via newFunctionWithName:
+Value at index 0: 0.000000
+Value at index 1: 1.000000
+Value at index 2: 2.000000
+Value at index 3: 3.000000
+Previous purge state: NonVolatile
+New purge state after setting to Volatile: NonVolatile
+Shared buffer storage mode: Shared
+Private buffer storage mode: Private
+Write combined buffer CPU cache mode: WriteCombined

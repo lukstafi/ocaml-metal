@@ -1,8 +1,7 @@
 open Ctypes
 open Metal
 
-
-let%expect_test "Indirect command buffer basics" =
+let test_indirect_command_buffer_basics () =
   let device = Device.create_system_default () in
 
   (* Skip if device doesn't support indirect command buffers *)
@@ -96,14 +95,7 @@ let%expect_test "Indirect command buffer basics" =
     for i = 0 to 3 do
       let value = !@(ptr +@ i) in
       Printf.printf "buffer[%d] = %g\n" i value
-    done);
-  [%expect
-    {|
-    Pipeline descriptor: ((label "") (function (name double_values type Kernel))
-                          (support_icb true))
-    Pipeline supports indirect command buffers: true
-    buffer[0] = 2
-    buffer[1] = 4
-    buffer[2] = 6
-    buffer[3] = 8
-    |}]
+    done)
+
+let () =
+  test_indirect_command_buffer_basics ()

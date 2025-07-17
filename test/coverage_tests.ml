@@ -153,7 +153,7 @@ let test_debug_functions () =
   Printf.printf "Debug functions executed successfully\n"
 
 (* Main test that exercises all the helpers *)
-let%expect_test "Comprehensive coverage test" =
+let test_comprehensive_coverage () =
   Printf.printf "Starting comprehensive coverage test...\n";
 
   test_range_functions ();
@@ -163,43 +163,7 @@ let%expect_test "Comprehensive coverage test" =
   test_command_buffer_handlers ();
   test_debug_functions ();
 
-  Printf.printf "Comprehensive coverage test completed\n";
-  [%expect
-    {|
-    Starting comprehensive coverage test...
-    Range: location=10, length=20
-    Range conversion works correctly
-    ResourceOption storage_mode_shared: 0
-    ResourceOption storage_mode_managed: 16
-    ResourceOption storage_mode_private: 32
-    ResourceOption storage_mode_memoryless: 48
-    ResourceOption cpu_cache_mode_default_cache: 0
-    ResourceOption cpu_cache_mode_write_combined: 1
-    ResourceOption hazard_tracking_mode_default: 0
-    ResourceOption hazard_tracking_mode_untracked: 256
-    ResourceOption hazard_tracking_mode_tracked: 512
-    Combined options: 545
-    Made options: 545
-    PipelineOption none: 0
-    PipelineOption argument_info: 1
-    PipelineOption buffer_type_info: 2
-    PipelineOption fail_on_binary_archive_miss: 4
-    Combined pipeline options: 3
-    Language version version_1_0: Version_1_0
-    Language version version_1_1: Version_1_1
-    Language version version_1_2: Version_1_2
-    Language version version_2_0: Version_2_0
-    Language version version_2_1: Version_2_1
-    Language version version_2_2: Version_2_2
-    Language version version_2_3: Version_2_3
-    Language version version_2_4: Version_2_4
-    Language version version_3_0: Version_3_0
-    Language version version_3_1: Version_3_1
-    Language version version_3_2: Version_3_2
-    Scheduled handler called
-    Completed handler called
-    Scheduled handler was called: true
-    Completed handler was called: true
-    Debug functions executed successfully
-    Comprehensive coverage test completed
-    |}]
+  Printf.printf "Comprehensive coverage test completed\n"
+
+let () =
+  test_comprehensive_coverage ()

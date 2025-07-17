@@ -35,7 +35,6 @@
   ctypes-foreign
   sexplib0
   ppx_sexp_conv
-  ppx_expect
   (odoc :with-doc)
   camlkit-base)
  (tags

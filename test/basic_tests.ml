@@ -1,7 +1,7 @@
 open Ctypes
 open Metal
 
-let%expect_test "Device creation and attributes" =
+let test_device_creation_and_attributes () =
   let device = Device.create_system_default () in
   Printf.printf "Device created successfully\n";
 
@@ -10,20 +10,13 @@ let%expect_test "Device creation and attributes" =
   Printf.printf "Has unified memory: %b\n" attrs.has_unified_memory;
   Printf.printf "Max buffer length >= 268,435,456: %s\n"
     (if Unsigned.ULong.to_int attrs.max_buffer_length >= 268435456 then "yes" else "no");
-  [%expect
-    {|
-    Device created successfully
-    Device has long name: true
-    Has unified memory: true
-    Max buffer length >= 268,435,456: yes
-    |}];
 
   (* Test getting other device properties *)
   ignore (attrs.max_threads_per_threadgroup : Size.t);
   ignore (attrs.registry_id : Unsigned.ULLong.t);
   ()
 
-let%expect_test "Copy all devices" =
+let test_copy_all_devices () =
   let default_device = Device.create_system_default () in
   let default_name =
     let attrs = Device.get_attributes default_device in
@@ -41,16 +34,9 @@ let%expect_test "Copy all devices" =
 
   Printf.printf "First device in array prefix has long name: %b\n"
     (String.length first_device_name > 4);
-  Printf.printf "Default device is first in array: %b\n" (default_name = first_device_name);
+  Printf.printf "Default device is first in array: %b\n" (default_name = first_device_name)
 
-  [%expect
-    {|
-    Found > 0 Metal device(s): true
-    First device in array prefix has long name: true
-    Default device is first in array: true
-  |}]
-
-let%expect_test "Size, Origin, and Region operations" =
+let test_size_origin_region_operations () =
   (* Test Size module *)
   let size = Size.make ~width:100 ~height:200 ~depth:300 in
   let size_val = Size.from_struct size in
@@ -75,16 +61,9 @@ let%expect_test "Size, Origin, and Region operations" =
   let region_val = Region.from_struct region in
   Printf.printf "Region: origin=(%d,%d,%d), size=(%d,%d,%d)\n" region_val.origin.x
     region_val.origin.y region_val.origin.z region_val.size.width region_val.size.height
-    region_val.size.depth;
-  [%expect
-    {|
-    Size: width=100, height=200, depth=300
-    Size conversion preserved: true
-    Origin: x=10, y=20, z=30
-    Region: origin=(10,20,30), size=(100,200,300)
-  |}]
+    region_val.size.depth
 
-let%expect_test "Buffer creation and operations" =
+let test_buffer_creation_and_operations () =
   let device = Device.create_system_default () in
 
   (* Create buffer with various options *)
@@ -113,15 +92,9 @@ let%expect_test "Buffer creation and operations" =
   Resource.set_label (Buffer.super buffer) "Test buffer";
   let label = Resource.get_label (Buffer.super buffer) in
   Printf.printf "Buffer label: %s\n" label;
-  assert (label = "Test buffer");
-  [%expect
-    {|
-    Buffer length: 1024
-    Buffer value: 42.000000
-    Buffer label: Test buffer
-  |}]
+  assert (label = "Test buffer")
 
-let%expect_test "Command queue and buffer operations" =
+let test_command_queue_and_buffer_operations () =
   let device = Device.create_system_default () in
   let queue = CommandQueue.on_device device in
 
@@ -164,17 +137,9 @@ let%expect_test "Command queue and buffer operations" =
 
   (* Check for errors *)
   let error = CommandBuffer.get_error cmd_buffer in
-  Printf.printf "Command buffer has error: %b\n" (Option.is_some error);
-  [%expect
-    {|
-    Queue label: Test queue
-    Command buffer label: Test command buffer
-    Initial status: NotEnqueued
-    Final status: Completed
-    Command buffer has error: false
-  |}]
+  Printf.printf "Command buffer has error: %b\n" (Option.is_some error)
 
-let%expect_test "Library and function operations" =
+let test_library_and_function_operations () =
   let device = Device.create_system_default () in
 
   (* Create a simple compute kernel *)
@@ -219,17 +184,9 @@ let%expect_test "Library and function operations" =
     | Visible -> "Visible"
     | Intersection -> "Intersection"
     | Mesh -> "Mesh"
-    | Object -> "Object");
-  [%expect
-    {|
-    Library label: Test library
-    Library contains 1 functions
-    Function: test_kernel
-    Function name: test_kernel
-    Function type: Kernel
-  |}]
+    | Object -> "Object")
 
-let%expect_test "ComputePipelineState creation and properties" =
+let test_compute_pipeline_state_creation_and_properties () =
   let device = Device.create_system_default () in
 
   (* Create a simple compute kernel *)
@@ -274,17 +231,9 @@ let%expect_test "ComputePipelineState creation and properties" =
   (* Create pipeline from descriptor *)
   let pipeline_state2, _ = ComputePipelineState.on_device_with_descriptor device descriptor in
   let thread_width2 = ComputePipelineState.get_thread_execution_width pipeline_state2 in
-  Printf.printf "Second pipeline thread width: %d\n" thread_width2;
-  [%expect
-    {|
-    Max total threads per threadgroup: 1024
-    Thread execution width: 32
-    Static threadgroup memory length: 0
-    Pipeline descriptor label: Test pipeline descriptor
-    Second pipeline thread width: 32
-    |}]
+  Printf.printf "Second pipeline thread width: %d\n" thread_width2
 
-let%expect_test "ResourceOptions and other option types" =
+let test_resource_options_and_other_option_types () =
   (* Test ResourceOptions combinations *)
   let options1 = ResourceOptions.storage_mode_shared in
   let options2 = ResourceOptions.(storage_mode_shared + cpu_cache_mode_write_combined) in
@@ -379,17 +328,14 @@ let%expect_test "ResourceOptions and other option types" =
      Printf.printf "Pipeline created with option2, has reflection: %b\n" (not (is_null reflection2))
    with Failure msg ->
      Printf.printf "Note: Pipeline creation test skipped due to: %s\n"
-       (if String.length msg > 50 then String.sub msg 0 50 ^ "..." else msg));
+       (if String.length msg > 50 then String.sub msg 0 50 ^ "..." else msg))
 
-  [%expect
-    {|
-    Options created successfully
-    Buffer1 storage mode: Shared
-    Buffer2 CPU cache mode: WriteCombined
-    Buffer3 storage mode: Private
-    Fast math enabled: true
-    Language version: 2.4
-    Optimization level: Performance
-    Pipeline created with option1, has reflection: true
-    Pipeline created with option2, has reflection: true
-    |}]
+let () =
+  test_device_creation_and_attributes ();
+  test_copy_all_devices ();
+  test_size_origin_region_operations ();
+  test_buffer_creation_and_operations ();
+  test_command_queue_and_buffer_operations ();
+  test_library_and_function_operations ();
+  test_compute_pipeline_state_creation_and_properties ();
+  test_resource_options_and_other_option_types ()

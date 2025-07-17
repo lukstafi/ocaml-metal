@@ -123,4 +123,4 @@ To add coverage reporting to your CI pipeline:
 4. Test different options and configurations
 5. Create helper functions for repetitive test setup
 
-By following these steps, you can achieve high coverage for your Metal bindings, ensuring more robust and reliable code. 
+By following these steps, you can achieve high coverage for your Metal bindings, ensuring more robust and reliable code.
