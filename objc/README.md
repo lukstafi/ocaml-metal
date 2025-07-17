@@ -15,9 +15,11 @@ This directory contains vendored files from camlkit-base.runtime to remove the e
 - `runtime.ml` - Main runtime module with Objective-C bindings (platform detection removed)
 - `type_description.ml` - Type description utilities
 
-**Note:** All platform-specific code paths have been simplified to use the macOS/Darwin implementations directly.
 
 ## Changes from Original camlkit-base
+
+All platform-specific code paths have been simplified to use the macOS/Darwin implementations directly.
+We removed static configuration and pick AMD vs. ARM architecture at runtime (at startup).
 
 ### Block Module Fixes
 
@@ -35,8 +37,6 @@ Some of these changes got incorporated into a newer release of camlkit-base, in 
 ### Objc Module Enhancements  
 
 - Added `msg_send_suspended` function that releases the runtime lock to prevent blocking other threads during long-running operations
-
-These fixes address perceived bugs in the original camlkit-base runtime and have been incorporated directly into the vendored code.
 
 ## Usage
 
