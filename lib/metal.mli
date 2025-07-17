@@ -1,5 +1,3 @@
-module CG = CoreGraphics
-
 val debug_msg_send : (select:string -> unit) option ref
 (** A debug callback function that will be called for each Objective-C message send. The callback
     receives the selector name. Set to [None] to disable debugging. *)
@@ -7,13 +5,6 @@ val debug_msg_send : (select:string -> unit) option ref
 val init_debug_log_to_file : string -> unit
 (** Initialize debug logging to a file. This sets a debug callback that logs timestamps and
     selectors to the specified file. *)
-
-module Objc : sig
-  include module type of Runtime.Objc
-
-  val msg_send_suspended :
-    self:object_t -> cmd:objc_selector Ctypes.structure Ctypes_static.ptr -> typ:'a fn -> 'a
-end
 
 (** {2 Basic Structures} *)
 
@@ -375,7 +366,7 @@ module Resource : sig
   val get_hazard_tracking_mode : t -> HazardTrackingMode.t
   val get_resource_options : t -> ResourceOptions.t
 
-  val get_heap : t -> Objc.object_t
+  val get_heap : t -> Runtime.Objc.object_t
   (** Gets the heap the resource was allocated from (if any). Result type needs Heap module. *)
 
   val get_heap_offset : t -> int
@@ -520,7 +511,7 @@ module ComputePipelineState : sig
     ?options:PipelineOption.t ->
     ?reflection:bool ->
     Function.t ->
-    t * Objc.object_t Ctypes.ptr (* Returns PSO and optional reflection object *)
+    t * Runtime.Objc.object_t Ctypes.ptr (* Returns PSO and optional reflection object *)
   (** Creates a pipeline state from a function. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/makecomputepipelinestate(function:options:reflection:)?language=objc}
        newComputePipelineStateWithFunction:options:reflection:error:}. *)
@@ -530,7 +521,7 @@ module ComputePipelineState : sig
     ?options:PipelineOption.t ->
     ?reflection:bool ->
     ComputePipelineDescriptor.t ->
-    t * Objc.object_t Ctypes.ptr (* Returns PSO and optional reflection object *)
+    t * Runtime.Objc.object_t Ctypes.ptr (* Returns PSO and optional reflection object *)
   (** Creates a pipeline state from a descriptor. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/makecomputepipelinestate(descriptor:options:reflection:)?language=objc}
        newComputePipelineStateWithDescriptor:options:reflection:error:}. *)
