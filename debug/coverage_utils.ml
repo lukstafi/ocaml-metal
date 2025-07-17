@@ -71,9 +71,7 @@ let test_pipeline_options () =
     combinations;
 
   (* Test combine operator *)
-  let combined =
-    PipelineOption.(argument_info + buffer_type_info)
-  in
+  let combined = PipelineOption.(argument_info + buffer_type_info) in
   Printf.printf "Combined pipeline options: %s\n%!"
     (Sexplib0.Sexp.to_string_hum @@ PipelineOption.sexp_of_t combined)
 

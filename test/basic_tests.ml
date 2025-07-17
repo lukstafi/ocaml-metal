@@ -312,23 +312,23 @@ let test_resource_options_and_other_option_types () =
      else "Not Performance");
 
   (* Create library and test pipeline with options *)
-  (try
-     let library = Library.on_device device ~source:kernel_source compile_opts in
-     let func = Library.new_function_with_name library "simple_kernel" in
+  try
+    let library = Library.on_device device ~source:kernel_source compile_opts in
+    let func = Library.new_function_with_name library "simple_kernel" in
 
-     (* Try creating pipeline with different options *)
-     let _, reflection1 =
-       ComputePipelineState.on_device_with_function device ~options:pipe_opt1 ~reflection:true func
-     in
-     Printf.printf "Pipeline created with option1, has reflection: %b\n" (not (is_null reflection1));
+    (* Try creating pipeline with different options *)
+    let _, reflection1 =
+      ComputePipelineState.on_device_with_function device ~options:pipe_opt1 ~reflection:true func
+    in
+    Printf.printf "Pipeline created with option1, has reflection: %b\n" (not (is_null reflection1));
 
-     let _, reflection2 =
-       ComputePipelineState.on_device_with_function device ~options:pipe_opt2 ~reflection:true func
-     in
-     Printf.printf "Pipeline created with option2, has reflection: %b\n" (not (is_null reflection2))
-   with Failure msg ->
-     Printf.printf "Note: Pipeline creation test skipped due to: %s\n"
-       (if String.length msg > 50 then String.sub msg 0 50 ^ "..." else msg))
+    let _, reflection2 =
+      ComputePipelineState.on_device_with_function device ~options:pipe_opt2 ~reflection:true func
+    in
+    Printf.printf "Pipeline created with option2, has reflection: %b\n" (not (is_null reflection2))
+  with Failure msg ->
+    Printf.printf "Note: Pipeline creation test skipped due to: %s\n"
+      (if String.length msg > 50 then String.sub msg 0 50 ^ "..." else msg)
 
 let () =
   test_device_creation_and_attributes ();

@@ -4,7 +4,7 @@
  (libraries base stdio metal ctypes.foreign))
 
 (test
- (name error_tests) 
+ (name error_tests)
  (deps error_tests.expected)
  (libraries base stdio metal ctypes.foreign))
 
@@ -24,6 +24,7 @@
  (libraries base stdio metal ctypes.foreign bigarray))
 
 ; This test fails if run on CI "paravirtual machine".
+
 (test
  (name advanced_tests_icb)
  (enabled_if
@@ -32,6 +33,7 @@
  (libraries base stdio metal ctypes.foreign))
 
 ; CI GPU family does not support MSL 3.2 / logging.
+
 (test
  (name logging_tests)
  (enabled_if

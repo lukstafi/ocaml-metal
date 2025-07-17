@@ -50,8 +50,7 @@ let test_resource_options () =
       ~cpu_cache_mode:ResourceOptions.cpu_cache_mode_write_combined
       ~hazard_tracking_mode:ResourceOptions.hazard_tracking_mode_tracked ()
   in
-  Printf.printf "Made options: %s\n"
-    (Sexplib0.Sexp.to_string_hum @@ ResourceOptions.sexp_of_t made)
+  Printf.printf "Made options: %s\n" (Sexplib0.Sexp.to_string_hum @@ ResourceOptions.sexp_of_t made)
 
 (* Helper to test all PipelineOption combinations *)
 let test_pipeline_options () =
@@ -71,9 +70,7 @@ let test_pipeline_options () =
     combinations;
 
   (* Test combine operator *)
-  let combined =
-    PipelineOption.(argument_info + buffer_type_info)
-  in
+  let combined = PipelineOption.(argument_info + buffer_type_info) in
   Printf.printf "Combined pipeline options: %s\n"
     (Sexplib0.Sexp.to_string_hum @@ PipelineOption.sexp_of_t combined)
 
@@ -165,5 +162,4 @@ let test_comprehensive_coverage () =
 
   Printf.printf "Comprehensive coverage test completed\n"
 
-let () =
-  test_comprehensive_coverage ()
+let () = test_comprehensive_coverage ()

@@ -18,6 +18,7 @@ let _Blit_encoder_operations =
   for i = 0 to 9 do
     src_ptr +@ i <-@ float_of_int (i * 10)
   done;
+
   (* Buffer.did_modify_range source_buffer { Range.location = 0; length = buffer_size }; *)
 
   (* Create command buffer and blit encoder *)
@@ -71,23 +72,24 @@ let _Blit_fill_operations =
     Printf.printf "initial_buffer[%d] = %d\n%!" i (Unsigned.UInt8.to_int value)
   done;
   Printf.printf "--- End initial check ---\n%!";
-  (* --- END DEBUG --- *)
 
+  (* --- END DEBUG --- *)
   Printf.printf "Preparing to fill buffer with value 42...\n%!";
   BlitCommandEncoder.fill_buffer blit_encoder buffer
     { Range.location = 0; length = buffer_size }
-    ~value:42; (* Changed value for testing *)
+    ~value:42;
+  (* Changed value for testing *)
   Printf.printf "Fill buffer command encoded\n%!";
 
   (* End encoding and commit *)
   Printf.printf "Ending blit encoder...\n%!";
   BlitCommandEncoder.end_encoding blit_encoder;
   Printf.printf "Blit encoder ended\n%!";
-  
+
   Printf.printf "Committing command buffer...\n%!";
   CommandBuffer.commit cmd_buffer;
   Printf.printf "Command buffer committed\n%!";
-  
+
   Printf.printf "Waiting for command buffer to complete...\n%!";
   CommandBuffer.wait_until_completed cmd_buffer;
   Printf.printf "Command buffer completed\n%!";
@@ -96,6 +98,7 @@ let _Blit_fill_operations =
   (match CommandBuffer.get_error cmd_buffer with
   | None -> Printf.printf "--- Command buffer completed without error ---\n%!"
   | Some err_desc -> Printf.printf "--- Command buffer completed WITH ERROR: %s ---\n%!" err_desc);
+
   (* --- END DEBUG --- *)
 
   (* Verify the buffer contents *)
@@ -107,6 +110,7 @@ let _Blit_fill_operations =
   done;
   Printf.printf "--- End final check ---\n%!";
   Printf.printf "Blit_fill_operations test completed successfully\n%!"
+
 let _Event_synchronization =
   let device = Device.create_system_default () in
   let queue = CommandQueue.on_device device in
@@ -167,6 +171,7 @@ let _Fence_synchronization_in_blit_encoder =
   for i = 0 to 15 do
     src_ptr +@ i <-@ Unsigned.UInt8.of_int i
   done;
+
   (* Buffer.did_modify_range source_buffer { Range.location = 0; length = buffer_size }; *)
 
   (* Create command buffer *)
@@ -225,24 +230,23 @@ let _Indirect_command_buffer_basics =
 
   let compile_options = CompileOptions.init () in
   Printf.printf "Created compile options\n%!";
-  
+
   Printf.printf "Attempting to create library...\n%!";
   let library = Library.on_device device ~source:kernel_source compile_options in
   Printf.printf "Created library\n%!";
-  
+
   Printf.printf "Attempting to get function from library...\n%!";
   let func = Library.new_function_with_name library "double_values" in
   Printf.printf "Got function from library\n%!";
 
   Printf.printf "Setting compute function on pipeline descriptor\n%!";
   ComputePipelineDescriptor.set_compute_function pipeline_desc func;
-  Format.printf "Pipeline descriptor: %a\n%!" Sexplib0.Sexp.pp_hum (ComputePipelineDescriptor.sexp_of_t pipeline_desc);
+  Format.printf "Pipeline descriptor: %a\n%!" Sexplib0.Sexp.pp_hum
+    (ComputePipelineDescriptor.sexp_of_t pipeline_desc);
 
   (* Create compute pipeline state *)
   Printf.printf "Attempting to create pipeline state...\n%!";
-  let pipeline_state, _ =
-    ComputePipelineState.on_device_with_descriptor device pipeline_desc
-  in
+  let pipeline_state, _ = ComputePipelineState.on_device_with_descriptor device pipeline_desc in
   Printf.printf "Checking if pipeline supports ICB...\n%!";
   let supports_icb = ComputePipelineState.get_support_indirect_command_buffers pipeline_state in
   Printf.printf "Pipeline supports indirect command buffers: %b\n%!" supports_icb;
@@ -335,5 +339,4 @@ let _Indirect_command_buffer_basics =
       Printf.printf "buffer[%d] = %g\n%!" i value
     done;
     Printf.printf "Verification complete\n%!")
-  else
-    Printf.printf "Skipping ICB test as device doesn't support it\n%!"
+  else Printf.printf "Skipping ICB test as device doesn't support it\n%!"

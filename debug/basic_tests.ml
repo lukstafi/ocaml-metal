@@ -59,8 +59,8 @@ let _Buffer_creation_and_operations =
   let contents = Buffer.contents buffer in
   let float_ptr = coerce (ptr void) (ptr float) contents in
   float_ptr <-@ 42.0;
-  (* Buffer.did_modify_range buffer { Range.location = 0; length = sizeof float }; *)
 
+  (* Buffer.did_modify_range buffer { Range.location = 0; length = sizeof float }; *)
   let contents2 = Buffer.contents buffer in
   let float_ptr2 = coerce (ptr void) (ptr float) contents2 in
   let value = !@float_ptr2 in
@@ -72,7 +72,6 @@ let _Buffer_creation_and_operations =
   let label = Resource.get_label (Buffer.super buffer) in
   Printf.printf "Buffer label: %s\n" label;
   assert (label = "Test buffer")
-
 
 let _Command_queue_and_buffer_operations =
   let device = Device.create_system_default () in
@@ -118,7 +117,6 @@ let _Command_queue_and_buffer_operations =
   (* Check for errors *)
   let error = CommandBuffer.get_error cmd_buffer in
   Printf.printf "Command buffer has error: %b\n" (Option.is_some error)
-
 
 let _Library_and_function_operations =
   let device = Device.create_system_default () in
@@ -166,7 +164,6 @@ let _Library_and_function_operations =
     | Intersection -> "Intersection"
     | Mesh -> "Mesh"
     | Object -> "Object")
-
 
 let _ComputePipelineState_creation_and_properties =
   let device = Device.create_system_default () in

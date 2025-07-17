@@ -18,6 +18,7 @@ let test_blit_encoder_operations () =
   for i = 0 to 9 do
     src_ptr +@ i <-@ float_of_int (i * 10)
   done;
+
   (* Buffer.did_modify_range source_buffer { Range.location = 0; length = buffer_size }; *)
 
   (* Create command buffer and blit encoder *)
@@ -131,6 +132,7 @@ let test_fence_synchronization_in_blit_encoder () =
   for i = 0 to 15 do
     src_ptr +@ i <-@ Unsigned.UInt8.of_int i
   done;
+
   (* Buffer.did_modify_range source_buffer { Range.location = 0; length = buffer_size }; *)
 
   (* Create command buffer *)

@@ -26,12 +26,11 @@ let test_indirect_command_buffer_basics () =
   let func = Library.new_function_with_name library "double_values" in
   ComputePipelineDescriptor.set_compute_function pipeline_desc func;
   (* Log pipeline descriptor via sexp conversion *)
-  Format.printf "Pipeline descriptor: %a\n%!" Sexplib0.Sexp.pp_hum (ComputePipelineDescriptor.sexp_of_t pipeline_desc);
+  Format.printf "Pipeline descriptor: %a\n%!" Sexplib0.Sexp.pp_hum
+    (ComputePipelineDescriptor.sexp_of_t pipeline_desc);
 
   (* Create compute pipeline state *)
-  let pipeline_state, _ =
-    ComputePipelineState.on_device_with_descriptor device pipeline_desc
-  in
+  let pipeline_state, _ = ComputePipelineState.on_device_with_descriptor device pipeline_desc in
 
   let supports_icb = ComputePipelineState.get_support_indirect_command_buffers pipeline_state in
   Printf.printf "Pipeline supports indirect command buffers: %b\n" supports_icb;
@@ -67,6 +66,7 @@ let test_indirect_command_buffer_basics () =
     for i = 0 to 3 do
       ptr +@ i <-@ float_of_int (i + 1)
     done;
+
     (* Buffer.did_modify_range buffer { Range.location = 0; length = buffer_size }; *)
 
     (* Set buffer in command *)
@@ -97,5 +97,4 @@ let test_indirect_command_buffer_basics () =
       Printf.printf "buffer[%d] = %g\n" i value
     done)
 
-let () =
-  test_indirect_command_buffer_basics ()
+let () = test_indirect_command_buffer_basics ()

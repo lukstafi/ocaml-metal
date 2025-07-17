@@ -4,26 +4,24 @@
 (executable
  (name basic_tests)
  (modules basic_tests)
- (libraries metal ))
+ (libraries metal))
 
 (executable
  (name error_tests)
  (modules error_tests)
- (libraries metal ))
+ (libraries metal))
 
 (executable
  (name advanced_tests)
  (modules advanced_tests)
- (libraries metal ))
+ (libraries metal))
 
 (executable
  (name coverage_utils)
  (modules coverage_utils)
- (libraries metal ))
+ (libraries metal))
 
 (executable
  (name saxpy)
  (modules saxpy)
- (libraries metal ))
- 
- 
+ (libraries metal))

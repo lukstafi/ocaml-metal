@@ -1,14 +1,14 @@
 (executable
  (name properties)
  (modules properties)
- (libraries metal ))
+ (libraries metal))
 
 (executable
  (name logging_tests)
  (modules logging_tests)
- (libraries metal ))
+ (libraries metal))
 
 (executable
  (name saxpy)
  (modules saxpy)
- (libraries metal ))
+ (libraries metal))

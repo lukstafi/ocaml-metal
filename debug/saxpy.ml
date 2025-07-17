@@ -16,7 +16,7 @@ let copy_bigarray_to_buffer ba (buffer : Metal.Buffer.t) =
   let len = Array1.dim ba * element_size in
   (* Use to_voidp for compatibility with memcpy *)
   ignore (memcpy (to_voidp buffer_ptr) (to_voidp data_ptr) (Unsigned.Size_t.of_int len))
-  (* ; Metal.Buffer.did_modify_range buffer { location = 0; length = len } *)
+(* ; Metal.Buffer.did_modify_range buffer { location = 0; length = len } *)
 
 (* Metal Shading Language (MSL) kernel for SAXPY *)
 let saxpy_kernel_source =
@@ -72,8 +72,8 @@ let _SAXPY_kernel_computation_test =
   (* Copy scalar 'a' *)
   let a_ptr : unit ptr = Metal.Buffer.contents buffer_a in
   coerce (ptr void) (ptr float) a_ptr <-@ a_val;
-  (* Metal.Buffer.did_modify_range buffer_a {location = 0; length = sizeof float}; *)
 
+  (* Metal.Buffer.did_modify_range buffer_a {location = 0; length = sizeof float}; *)
   Printf.printf "Data copied to buffers.\n";
 
   (* 3. Compile the Kernel *)
@@ -133,10 +133,7 @@ let _SAXPY_kernel_computation_test =
 
   (* Check for command buffer errors *)
   let command_buffer_error = Metal.CommandBuffer.get_error command_buffer in
-  Option.iter
-      (fun error ->
-      Printf.eprintf "Command buffer error: %s\n" error)
-    command_buffer_error;
+  Option.iter (fun error -> Printf.eprintf "Command buffer error: %s\n" error) command_buffer_error;
 
   (* 10. Verify Results (Optional but recommended) *)
   (* For shared memory, we might need to ensure CPU/GPU caches are synchronized.
