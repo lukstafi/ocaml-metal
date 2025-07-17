@@ -22,6 +22,15 @@ This directory contains vendored files from camlkit-base.runtime to remove the e
 ### Block Module Fixes
 
 - Changed from `__NSGlobalBlock` to `__NSStackBlock__` to avoid crashes when ctypes releases the object
+- Callback pointer created with `funptr ~runtime_lock:true ~thread_registration:true`
+
+See:
+
+- [Consider adding to Block the ability to set ~runtime_lock:true, to avoid Fatal error: no domain lock held](https://github.com/dboris/camlkit/issues/9),
+- [Enable passing ~release_runtime_lock:true to msg_send (optional arg or msg_send_suspended)](https://github.com/dboris/camlkit/issues/10),
+- [Runtime.Block has an unsafe corner case that can be fixed by pretending it's stack allocated](https://github.com/dboris/camlkit/issues/11)
+
+Some of these changes got incorporated into a newer release of camlkit-base, in a more flexible form.
 
 ### Objc Module Enhancements  
 
