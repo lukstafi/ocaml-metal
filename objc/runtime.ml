@@ -530,7 +530,7 @@ module Block = struct
     let b = make t in
     setf b isa self;
     setf b descriptor desc_ptr;
-    setf b invoke (coerce (funptr typ) (ptr void) f);
+    setf b invoke (coerce (funptr ~runtime_lock:true ~thread_registration:true typ) (ptr void) f);
     setf b flags block_is_global;
     allocate t b |> coerce (ptr t) (ptr void)
 

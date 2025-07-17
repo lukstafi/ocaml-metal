@@ -39,4 +39,5 @@ Captured shader logs:
 
 [Notice] com.custom_log.subsystem/custom category: Thread 6 calculation complete: 14.000000
 
-[Notice] com.custom_log.subsystem/custom category: Thread 7 calculation complete: 16.000000 
+[Notice] com.custom_log.subsystem/custom category: Thread 7 calculation complete: 16.000000
+
