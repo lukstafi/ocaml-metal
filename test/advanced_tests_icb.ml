@@ -1,10 +1,7 @@
 open Ctypes
 open Metal
 
-let test_indirect_command_buffer_basics () =
-  let device = Device.create_system_default () in
-
-  (* Skip if device doesn't support indirect command buffers *)
+let test_indirect_command_buffer_basics device =
   let pipeline_desc = ComputePipelineDescriptor.create () in
   ComputePipelineDescriptor.set_support_indirect_command_buffers pipeline_desc true;
 
@@ -97,4 +94,10 @@ let test_indirect_command_buffer_basics () =
       Printf.printf "buffer[%d] = %g\n" i value
     done)
 
-let () = test_indirect_command_buffer_basics ()
+let () =
+  let device = Device.create_system_default () in
+  let attrs = Device.get_attributes device in
+  if String.ends_with ~suffix:"virtual device" attrs.name then (
+    Printf.printf "Device does not support indirect command buffers\n";
+    exit 0);
+  test_indirect_command_buffer_basics device

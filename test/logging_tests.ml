@@ -1,8 +1,7 @@
 open Ctypes
 open Metal
 
-let test_metal_shader_logging () =
-  let device = Device.create_system_default () in
+let test_metal_shader_logging device =
   Printf.printf "Device created successfully\n";
 
   (* Create a simple compute kernel with logging *)
@@ -123,4 +122,10 @@ let test_metal_shader_logging () =
   Printf.printf "\nCaptured shader logs:\n";
   List.rev !captured_logs |> List.iter (Printf.printf "%s\n")
 
-let () = test_metal_shader_logging ()
+let () =
+  let device = Device.create_system_default () in
+  let attrs = Device.get_attributes device in
+  if String.ends_with ~suffix:"virtual device" attrs.name then (
+    Printf.printf "Device does not support logging\n";
+    exit 0);
+  test_metal_shader_logging device
