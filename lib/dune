@@ -2,6 +2,4 @@
  (public_name metal)
  (flags :standard -ccopt "-framework CoreGraphics" -ccopt "-framework Metal")
  (modules metal)
- (preprocess
-  (pps ppx_sexp_conv))
  (libraries sexplib0 runtime))

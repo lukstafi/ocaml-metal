@@ -26,17 +26,14 @@
  (description
   "OCaml bindings to selected parts of Apple Metal, for general compute applications")
  (depends
-  ; at OCaml 4.13, base.0.15.1 is crashing the installation.
   (ocaml
-   (>= 4.14))
+   (>= 4.13))
   dune
   (ctypes
    (>= 0.14.0))
   ctypes-foreign
   sexplib0
-  ppx_sexp_conv
-  (odoc :with-doc)
-  camlkit-base)
+  (odoc :with-doc))
  (tags
   ("metal" "gpu" "compute" "apple")))
 

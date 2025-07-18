@@ -92,9 +92,17 @@ let check_error label err_ptr =
 (* === Basic Structures === *)
 
 module Size = struct
-  type t = { width : int; height : int; depth : int } [@@deriving sexp_of]
+  type t = { width : int; height : int; depth : int }
   type mtlsize
   type mtl = mtlsize structure ptr
+
+  let sexp_of_t { width; height; depth } =
+    let open Sexplib0.Sexp in
+    List [
+      List [Atom "width"; Atom (Int.to_string width)];
+      List [Atom "height"; Atom (Int.to_string height)];
+      List [Atom "depth"; Atom (Int.to_string depth)];
+    ]
 
   let mtlsize_t : mtlsize structure typ = structure "MTLSize"
   let width_field = field mtlsize_t "width" ulong
@@ -125,9 +133,17 @@ module Size = struct
 end
 
 module Origin = struct
-  type t = { x : int; y : int; z : int } [@@deriving sexp_of]
+  type t = { x : int; y : int; z : int }
   type mtlorigin
   type mtl = mtlorigin structure ptr
+
+  let sexp_of_t { x; y; z } =
+    let open Sexplib0.Sexp in
+    List [
+      List [Atom "x"; Atom (Int.to_string x)];
+      List [Atom "y"; Atom (Int.to_string y)];
+      List [Atom "z"; Atom (Int.to_string z)];
+    ]
 
   let mtlorigin_t : mtlorigin structure typ = structure "MTLOrigin"
   let x_field = field mtlorigin_t "x" ulong
@@ -158,9 +174,16 @@ module Origin = struct
 end
 
 module Region = struct
-  type t = { origin : Origin.t; size : Size.t } [@@deriving sexp_of]
+  type t = { origin : Origin.t; size : Size.t }
   type mtlregion
   type mtl = mtlregion structure ptr
+
+  let sexp_of_t { origin; size } =
+    let open Sexplib0.Sexp in
+    List [
+      List [Atom "origin"; Origin.sexp_of_t origin];
+      List [Atom "size"; Size.sexp_of_t size];
+    ]
 
   let mtlregion_t : mtlregion structure typ = structure "MTLRegion"
   let origin_field = field mtlregion_t "origin" Origin.mtlorigin_t
@@ -189,9 +212,16 @@ module Region = struct
 end
 
 module Range = struct
-  type t = { location : int; length : int } [@@deriving sexp_of]
+  type t = { location : int; length : int }
   type nsrange
   type ns = nsrange structure ptr
+
+  let sexp_of_t { location; length } =
+    let open Sexplib0.Sexp in
+    List [
+      List [Atom "location"; Atom (Int.to_string location)];
+      List [Atom "length"; Atom (Int.to_string length)];
+    ]
 
   let nsrange_t : nsrange structure typ = structure "_NSRange"
   let location_field = field nsrange_t "location" ulong
@@ -263,7 +293,25 @@ module Device = struct
       | MacCatalyst1
       | MacCatalyst2
       | Metal3
-    [@@deriving sexp_of]
+
+    let sexp_of_t = function
+      | Apple1 -> Sexplib0.Sexp.Atom "Apple1"
+      | Apple2 -> Sexplib0.Sexp.Atom "Apple2"
+      | Apple3 -> Sexplib0.Sexp.Atom "Apple3"
+      | Apple4 -> Sexplib0.Sexp.Atom "Apple4"
+      | Apple5 -> Sexplib0.Sexp.Atom "Apple5"
+      | Apple6 -> Sexplib0.Sexp.Atom "Apple6"
+      | Apple7 -> Sexplib0.Sexp.Atom "Apple7"
+      | Apple8 -> Sexplib0.Sexp.Atom "Apple8"
+      | Apple9 -> Sexplib0.Sexp.Atom "Apple9"
+      | Mac1 -> Sexplib0.Sexp.Atom "Mac1"
+      | Mac2 -> Sexplib0.Sexp.Atom "Mac2"
+      | Common1 -> Sexplib0.Sexp.Atom "Common1"
+      | Common2 -> Sexplib0.Sexp.Atom "Common2"
+      | Common3 -> Sexplib0.Sexp.Atom "Common3"
+      | MacCatalyst1 -> Sexplib0.Sexp.Atom "MacCatalyst1"
+      | MacCatalyst2 -> Sexplib0.Sexp.Atom "MacCatalyst2"
+      | Metal3 -> Sexplib0.Sexp.Atom "Metal3"
 
     let to_int = function
       | Apple1 -> 1001
@@ -311,7 +359,11 @@ module Device = struct
       (Signed.Long.of_int (GPUFamily.to_int family))
 
   module ArgumentBuffersTier = struct
-    type t = Tier1 | Tier2 [@@deriving sexp_of]
+    type t = Tier1 | Tier2
+
+    let sexp_of_t = function
+      | Tier1 -> Sexplib0.Sexp.Atom "Tier1"
+      | Tier2 -> Sexplib0.Sexp.Atom "Tier2"
 
     let from_ulong (i : Unsigned.ULong.t) =
       if Unsigned.ULong.equal i Unsigned.ULong.zero then Tier1
@@ -321,8 +373,6 @@ module Device = struct
     let to_ulong (t : t) : Unsigned.ulong =
       match t with Tier1 -> Unsigned.ULong.zero | Tier2 -> Unsigned.ULong.one
   end
-
-  open Sexplib0.Sexp_conv (* Open standard converters for @@deriving sexp_of *)
 
   (* Provide local modules with manual sexp converters for Unsigned types *)
   type ulong = Unsigned.ULong.t
@@ -349,7 +399,25 @@ module Device = struct
     peer_group_id : ullong;
     supported_gpu_families : GPUFamily.t list;
   }
-  [@@deriving sexp_of]
+
+  let sexp_of_attributes attr =
+    let open Sexplib0.Sexp in
+    List [
+      List [Atom "name"; Atom attr.name];
+      List [Atom "registry_id"; sexp_of_ullong attr.registry_id];
+      List [Atom "max_threads_per_threadgroup"; Size.sexp_of_t attr.max_threads_per_threadgroup];
+      List [Atom "max_buffer_length"; sexp_of_ulong attr.max_buffer_length];
+      List [Atom "max_threadgroup_memory_length"; sexp_of_ulong attr.max_threadgroup_memory_length];
+      List [Atom "argument_buffers_support"; ArgumentBuffersTier.sexp_of_t attr.argument_buffers_support];
+      List [Atom "recommended_max_working_set_size"; sexp_of_ullong attr.recommended_max_working_set_size];
+      List [Atom "is_low_power"; Atom (Bool.to_string attr.is_low_power)];
+      List [Atom "is_removable"; Atom (Bool.to_string attr.is_removable)];
+      List [Atom "is_headless"; Atom (Bool.to_string attr.is_headless)];
+      List [Atom "has_unified_memory"; Atom (Bool.to_string attr.has_unified_memory)];
+      List [Atom "peer_count"; sexp_of_ulong attr.peer_count];
+      List [Atom "peer_group_id"; sexp_of_ullong attr.peer_group_id];
+      List [Atom "supported_gpu_families"; List (List.map GPUFamily.sexp_of_t attr.supported_gpu_families)];
+    ]
 
   let get_attributes (self : t) : attributes =
     let name = ocaml_string_from_nsstring (msg_send ~self ~select:"name" ~typ:(returning id)) in
@@ -708,7 +776,13 @@ module Resource = struct
   let get_device (self : t) : Device.t = msg_send ~self ~select:"device" ~typ:(returning id)
 
   module PurgeableState = struct
-    type t = KeepCurrent | NonVolatile | Volatile | Empty [@@deriving sexp_of]
+    type t = KeepCurrent | NonVolatile | Volatile | Empty
+
+    let sexp_of_t = function
+      | KeepCurrent -> Sexplib0.Sexp.Atom "KeepCurrent"
+      | NonVolatile -> Sexplib0.Sexp.Atom "NonVolatile"
+      | Volatile -> Sexplib0.Sexp.Atom "Volatile"
+      | Empty -> Sexplib0.Sexp.Atom "Empty"
 
     let to_int = function KeepCurrent -> 1 | NonVolatile -> 2 | Volatile -> 3 | Empty -> 4
 
@@ -729,7 +803,11 @@ module Resource = struct
     PurgeableState.from_int (Unsigned.ULong.to_int prev_state_ulong)
 
   module CPUCacheMode = struct
-    type t = DefaultCache | WriteCombined [@@deriving sexp_of]
+    type t = DefaultCache | WriteCombined
+
+    let sexp_of_t = function
+      | DefaultCache -> Sexplib0.Sexp.Atom "DefaultCache"
+      | WriteCombined -> Sexplib0.Sexp.Atom "WriteCombined"
 
     let from_ulong i =
       match Unsigned.ULong.to_int i with
@@ -743,7 +821,13 @@ module Resource = struct
   end
 
   module StorageMode = struct
-    type t = Shared | Managed | Private | Memoryless [@@deriving sexp_of]
+    type t = Shared | Managed | Private | Memoryless
+
+    let sexp_of_t = function
+      | Shared -> Sexplib0.Sexp.Atom "Shared"
+      | Managed -> Sexplib0.Sexp.Atom "Managed"
+      | Private -> Sexplib0.Sexp.Atom "Private"
+      | Memoryless -> Sexplib0.Sexp.Atom "Memoryless"
 
     let from_ulong i =
       match Unsigned.ULong.to_int i with
@@ -761,7 +845,12 @@ module Resource = struct
   end
 
   module HazardTrackingMode = struct
-    type t = Default | Untracked | Tracked [@@deriving sexp_of]
+    type t = Default | Untracked | Tracked
+
+    let sexp_of_t = function
+      | Default -> Sexplib0.Sexp.Atom "Default"
+      | Untracked -> Sexplib0.Sexp.Atom "Untracked"
+      | Tracked -> Sexplib0.Sexp.Atom "Tracked"
 
     let from_ulong i =
       match Unsigned.ULong.to_int i with
@@ -910,7 +999,15 @@ end
 
 module FunctionType = struct
   type t = Vertex | Fragment | Kernel | Visible | Intersection | Mesh | Object
-  [@@deriving sexp_of]
+
+  let sexp_of_t = function
+    | Vertex -> Sexplib0.Sexp.Atom "Vertex"
+    | Fragment -> Sexplib0.Sexp.Atom "Fragment"
+    | Kernel -> Sexplib0.Sexp.Atom "Kernel"
+    | Visible -> Sexplib0.Sexp.Atom "Visible"
+    | Intersection -> Sexplib0.Sexp.Atom "Intersection"
+    | Mesh -> Sexplib0.Sexp.Atom "Mesh"
+    | Object -> Sexplib0.Sexp.Atom "Object"
 
   let from_ulong i =
     match Unsigned.ULong.to_int i with
@@ -1141,7 +1238,15 @@ end
 (* === Command Infrastructure === *)
 
 module LogLevel = struct
-  type t = Undefined | Debug | Info | Notice | Error | Fault [@@deriving sexp_of]
+  type t = Undefined | Debug | Info | Notice | Error | Fault
+
+  let sexp_of_t = function
+    | Undefined -> Sexplib0.Sexp.Atom "Undefined"
+    | Debug -> Sexplib0.Sexp.Atom "Debug"
+    | Info -> Sexplib0.Sexp.Atom "Info"
+    | Notice -> Sexplib0.Sexp.Atom "Notice"
+    | Error -> Sexplib0.Sexp.Atom "Error"
+    | Fault -> Sexplib0.Sexp.Atom "Fault"
 
   let from_long i =
     let i64 = Signed.Long.to_int64 i in
@@ -1399,7 +1504,14 @@ module CommandBuffer = struct
 
   module Status = struct
     type t = NotEnqueued | Enqueued | Committed | Scheduled | Completed | Error
-    [@@deriving sexp_of]
+
+    let sexp_of_t = function
+      | NotEnqueued -> Sexplib0.Sexp.Atom "NotEnqueued"
+      | Enqueued -> Sexplib0.Sexp.Atom "Enqueued"
+      | Committed -> Sexplib0.Sexp.Atom "Committed"
+      | Scheduled -> Sexplib0.Sexp.Atom "Scheduled"
+      | Completed -> Sexplib0.Sexp.Atom "Completed"
+      | Error -> Sexplib0.Sexp.Atom "Error"
 
     let from_ulong i =
       match Unsigned.ULong.to_int i with
@@ -1528,7 +1640,11 @@ module ComputeCommandEncoder = struct
     gc ~select encoder
 
   module DispatchType = struct
-    type t = Serial | Concurrent [@@deriving sexp_of]
+    type t = Serial | Concurrent
+
+    let sexp_of_t = function
+      | Serial -> Sexplib0.Sexp.Atom "Serial"
+      | Concurrent -> Sexplib0.Sexp.Atom "Concurrent"
 
     let to_ulong = function Serial -> Unsigned.ULong.zero | Concurrent -> Unsigned.ULong.one
   end

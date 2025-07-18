@@ -11,9 +11,11 @@ val init_debug_log_to_file : string -> unit
 (** Represents the dimensions of a grid, region, or threadgroup. See
     {{:https://developer.apple.com/documentation/metal/mtlsize} MTLSize}. *)
 module Size : sig
-  type t = { width : int; height : int; depth : int } [@@deriving sexp_of]
-  type mtl [@@deriving sexp_of]
+  type t = { width : int; height : int; depth : int }
+  type mtl
 
+  val sexp_of_t : t -> Sexplib0.Sexp.t
+  val sexp_of_mtl : mtl -> Sexplib0.Sexp.t
   val from_struct : mtl -> t
   val to_value : t -> mtl
   val make : width:int -> height:int -> depth:int -> mtl
@@ -22,9 +24,11 @@ end
 (** Represents the origin of a region in 3D space. See
     {{:https://developer.apple.com/documentation/metal/mtlorigin} MTLOrigin}. *)
 module Origin : sig
-  type t = { x : int; y : int; z : int } [@@deriving sexp_of]
-  type mtl [@@deriving sexp_of]
+  type t = { x : int; y : int; z : int }
+  type mtl
 
+  val sexp_of_t : t -> Sexplib0.Sexp.t
+  val sexp_of_mtl : mtl -> Sexplib0.Sexp.t
   val from_struct : mtl -> t
   val to_value : t -> mtl
   val make : x:int -> y:int -> z:int -> mtl
@@ -33,9 +37,11 @@ end
 (** Represents a 3D region. See
     {{:https://developer.apple.com/documentation/metal/mtlregion} MTLRegion}. *)
 module Region : sig
-  type t = { origin : Origin.t; size : Size.t } [@@deriving sexp_of]
-  type mtl [@@deriving sexp_of]
+  type t = { origin : Origin.t; size : Size.t }
+  type mtl
 
+  val sexp_of_t : t -> Sexplib0.Sexp.t
+  val sexp_of_mtl : mtl -> Sexplib0.Sexp.t
   val make : x:int -> y:int -> z:int -> width:int -> height:int -> depth:int -> mtl
   val from_struct : mtl -> t
   val to_value : t -> mtl
@@ -44,9 +50,11 @@ end
 (** Represents a range with location and length. See
     {{:https://developer.apple.com/documentation/foundation/nsrange} NSRange}. *)
 module Range : sig
-  type ns [@@deriving sexp_of]
-  type t = { location : int; length : int } [@@deriving sexp_of]
+  type ns
+  type t = { location : int; length : int }
 
+  val sexp_of_ns : ns -> Sexplib0.Sexp.t
+  val sexp_of_t : t -> Sexplib0.Sexp.t
   val from_struct : ns -> t
   val make : location:int -> length:int -> ns
   val to_value : t -> ns
@@ -55,7 +63,9 @@ end
 (** Represents the GPU device capable of executing Metal commands. See
     {{:https://developer.apple.com/documentation/metal/mtldevice} MTLDevice}. *)
 module Device : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val create_system_default : unit -> t
   (** Returns the default Metal device for the system. See
@@ -88,8 +98,8 @@ module Device : sig
       | MacCatalyst1
       | MacCatalyst2
       | Metal3
-    [@@deriving sexp_of]
 
+    val sexp_of_t : t -> Sexplib0.Sexp.t
     val to_int : t -> int
     val from_int : int -> t
   end
@@ -103,8 +113,9 @@ module Device : sig
       {{:https://developer.apple.com/documentation/metal/mtlargumentbufferstier}
        MTLArgumentBuffersTier}. *)
   module ArgumentBuffersTier : sig
-    type t = Tier1 | Tier2 [@@deriving sexp_of]
+    type t = Tier1 | Tier2
 
+    val sexp_of_t : t -> Sexplib0.Sexp.t
     val to_ulong : t -> Unsigned.ulong
   end
 
@@ -124,7 +135,8 @@ module Device : sig
     peer_group_id : Unsigned.ULLong.t;
     supported_gpu_families : GPUFamily.t list;
   }
-  [@@deriving sexp_of]
+
+  val sexp_of_attributes : attributes -> Sexplib0.Sexp.t
   (** Metal device attributes relevant for compute tasks. *)
 
   val get_attributes : t -> attributes
@@ -136,7 +148,9 @@ end
 (** Options for configuring Metal resources like buffers and textures. See
     {{:https://developer.apple.com/documentation/metal/mtlresourceoptions} MTLResourceOptions}. *)
 module ResourceOptions : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   (* Storage Modes (MTLStorageMode) *)
   val storage_mode_shared : t
@@ -197,7 +211,9 @@ end
 (** Options controlling pipeline state creation. See
     {{:https://developer.apple.com/documentation/metal/mtlpipelineoption} MTLPipelineOption}. *)
 module PipelineOption : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val none : t
   val argument_info : t
@@ -213,7 +229,9 @@ end
 (** Options for compiling Metal Shading Language (MSL) source code. See
     {{:https://developer.apple.com/documentation/metal/mtlcompileoptions} MTLCompileOptions}. *)
 module CompileOptions : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val init : unit -> t
   (** Creates a new, default set of compile options. *)
@@ -221,7 +239,9 @@ module CompileOptions : sig
   (** Specifies the version of the Metal Shading Language to use. See
       {{:https://developer.apple.com/documentation/metal/mtllanguageversion} MTLLanguageVersion}. *)
   module LanguageVersion : sig
-    type t [@@deriving sexp_of]
+    type t
+
+    val sexp_of_t : t -> Sexplib0.Sexp.t
 
     val version_1_0 : t
     val version_1_1 : t
@@ -239,8 +259,9 @@ module CompileOptions : sig
   (** Specifies the type of library to produce. See
       {{:https://developer.apple.com/documentation/metal/mtllibrarytype} MTLLibraryType}. *)
   module LibraryType : sig
-    type t [@@deriving sexp_of] (* Uses ullong *)
+    type t (* Uses ullong *)
 
+    val sexp_of_t : t -> Sexplib0.Sexp.t
     val executable : t
     val dynamic : t
     val to_ulong : t -> Unsigned.ulong
@@ -250,8 +271,9 @@ module CompileOptions : sig
       {{:https://developer.apple.com/documentation/metal/mtllibraryoptimizationlevel}
        MTLLibraryOptimizationLevel}. *)
   module OptimizationLevel : sig
-    type t [@@deriving sexp_of] (* Uses ullong *)
+    type t (* Uses ullong *)
 
+    val sexp_of_t : t -> Sexplib0.Sexp.t
     val default : t
     (** Default optimization level optimized for performance. **)
 
@@ -264,8 +286,9 @@ module CompileOptions : sig
   (** Specifies the math mode for floating-point optimizations. See
       {{:https://developer.apple.com/documentation/metal/mtlmathmode} MTLMathMode}. *)
   module MathMode : sig
-    type t = Safe | Relaxed | Fast [@@deriving sexp_of]
+    type t = Safe | Relaxed | Fast
 
+    val sexp_of_t : t -> Sexplib0.Sexp.t
     val to_ulong : t -> Unsigned.ulong
     val from_ulong : Unsigned.ulong -> t
   end
@@ -274,8 +297,9 @@ module CompileOptions : sig
       {{:https://developer.apple.com/documentation/metal/mtlmathfloatingpointfunctions}
        MTLMathFloatingPointFunctions}. *)
   module MathFloatingPointFunctions : sig
-    type t = Fast | Precise [@@deriving sexp_of]
+    type t = Fast | Precise
 
+    val sexp_of_t : t -> Sexplib0.Sexp.t
     val to_ulong : t -> Unsigned.ulong
     val from_ulong : Unsigned.ulong -> t
   end
@@ -314,7 +338,9 @@ end
 (** Common interface for Metal resources like buffers and textures. See
     {{:https://developer.apple.com/documentation/metal/mtlresource} MTLResource}. *)
 module Resource : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val set_label : t -> string -> unit
   val get_label : t -> string
@@ -325,7 +351,9 @@ module Resource : sig
   (** Resource purgeability states. See
       {{:https://developer.apple.com/documentation/metal/mtlpurgeablestate} MTLPurgeableState}. *)
   module PurgeableState : sig
-    type t = KeepCurrent | NonVolatile | Volatile | Empty [@@deriving sexp_of]
+    type t = KeepCurrent | NonVolatile | Volatile | Empty
+
+    val sexp_of_t : t -> Sexplib0.Sexp.t
   end
 
   val set_purgeable_state : t -> PurgeableState.t -> PurgeableState.t
@@ -334,8 +362,9 @@ module Resource : sig
   (** CPU cache modes. See
       {{:https://developer.apple.com/documentation/metal/mtlcpucachemode} MTLCPUCacheMode}. *)
   module CPUCacheMode : sig
-    type t = DefaultCache | WriteCombined [@@deriving sexp_of]
+    type t = DefaultCache | WriteCombined
 
+    val sexp_of_t : t -> Sexplib0.Sexp.t
     val to_ulong : t -> Unsigned.ulong
     val from_ulong : Unsigned.ulong -> t
   end
@@ -345,8 +374,9 @@ module Resource : sig
   (** Resource storage modes. See
       {{:https://developer.apple.com/documentation/metal/mtlstoragemode} MTLStorageMode}. *)
   module StorageMode : sig
-    type t = Shared | Managed | Private | Memoryless [@@deriving sexp_of]
+    type t = Shared | Managed | Private | Memoryless
 
+    val sexp_of_t : t -> Sexplib0.Sexp.t
     val to_ulong : t -> Unsigned.ulong
     val from_ulong : Unsigned.ulong -> t
   end
@@ -357,8 +387,9 @@ module Resource : sig
       {{:https://developer.apple.com/documentation/metal/mtlhazardtrackingmode}
        MTLHazardTrackingMode}. *)
   module HazardTrackingMode : sig
-    type t = Default | Untracked | Tracked [@@deriving sexp_of]
+    type t = Default | Untracked | Tracked
 
+    val sexp_of_t : t -> Sexplib0.Sexp.t
     val to_ulong : t -> Unsigned.ulong
     val from_ulong : Unsigned.ulong -> t
   end
@@ -383,7 +414,9 @@ end
 (** Represents a block of untyped memory accessible by the GPU. See
     {{:https://developer.apple.com/documentation/metal/mtlbuffer} MTLBuffer}. *)
 module Buffer : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val super : t -> Resource.t
   val on_device : Device.t -> length:int -> ResourceOptions.t -> t
@@ -425,8 +458,8 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlfunctiontype} MTLFunctionType}. *)
 module FunctionType : sig
   type t = Vertex | Fragment | Kernel | Visible | Intersection | Mesh | Object
-  [@@deriving sexp_of]
 
+  val sexp_of_t : t -> Sexplib0.Sexp.t
   val to_ulong : t -> Unsigned.ulong
   val from_ulong : Unsigned.ulong -> t
 end
@@ -434,7 +467,9 @@ end
 (** Represents a single, named function (shader or kernel) within a Metal library. See
     {{:https://developer.apple.com/documentation/metal/mtlfunction} MTLFunction}. *)
 module Function : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val set_label : t -> string -> unit
   val get_label : t -> string
@@ -451,7 +486,9 @@ end
 (** Represents a compiled Metal library containing one or more functions. See
     {{:https://developer.apple.com/documentation/metal/mtllibrary} MTLLibrary}. *)
 module Library : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val set_label : t -> string -> unit
   val get_label : t -> string
@@ -489,7 +526,9 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlcomputepipelinedescriptor}
      MTLComputePipelineDescriptor}. *)
 module ComputePipelineDescriptor : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val create : unit -> t
   val set_label : t -> string -> unit
@@ -504,7 +543,9 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlcomputepipelinestate}
      MTLComputePipelineState}. *)
 module ComputePipelineState : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val on_device_with_function :
     Device.t ->
@@ -545,8 +586,9 @@ end
 module LogLevel : sig
   (** Log levels for shader logging. See
       {{:https://developer.apple.com/documentation/metal/mtlloglevel} MTLLogLevel}. *)
-  type t = Undefined | Debug | Info | Notice | Error | Fault [@@deriving sexp_of]
+  type t = Undefined | Debug | Info | Notice | Error | Fault
 
+  val sexp_of_t : t -> Sexplib0.Sexp.t
   val from_long : Signed.long -> t
   val to_long : t -> Signed.long
 end
@@ -555,11 +597,12 @@ end
     {{:https://developer.apple.com/documentation/metal/mtllogstatedescriptor} MTLLogStateDescriptor}.
 *)
 module LogStateDescriptor : sig
-  type t [@@deriving sexp_of]
+  type t
   (** Configuration for creating a log state object. See
       {{:https://developer.apple.com/documentation/metal/mtllogstatedescriptor}
        MTLLogStateDescriptor}. *)
 
+  val sexp_of_t : t -> Sexplib0.Sexp.t
   val create : unit -> t
   (** Creates a new log state descriptor with default values. *)
 
@@ -579,10 +622,11 @@ end
 (** Container for shader log messages. See
     {{:https://developer.apple.com/documentation/metal/mtllogstate} MTLLogState}. *)
 module LogState : sig
-  type t [@@deriving sexp_of]
+  type t
   (** A container for shader log messages. See
       {{:https://developer.apple.com/documentation/metal/mtllogstate} MTLLogState}. *)
 
+  val sexp_of_t : t -> Sexplib0.Sexp.t
   val on_device_with_descriptor : Device.t -> LogStateDescriptor.t -> t
   (** Creates a log state object using the specified descriptor. See
       {{:https://developer.apple.com/documentation/metal/mtldevice/4379071-newlogstatewithdescriptor}
@@ -605,7 +649,9 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlcommandqueuedescriptor}
      MTLCommandQueueDescriptor}. *)
 module CommandQueueDescriptor : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
   (** Configuration for creating a command queue. See
       {{:https://developer.apple.com/documentation/metal/mtlcommandqueuedescriptor}
        MTLCommandQueueDescriptor}. *)
@@ -631,7 +677,9 @@ end
 (** A queue for submitting command buffers to a device. See
     {{:https://developer.apple.com/documentation/metal/mtlcommandqueue} MTLCommandQueue}. *)
 module CommandQueue : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val on_device : Device.t -> t
 
@@ -655,7 +703,9 @@ end
 (** An object used for GPU-GPU synchronization within a single device. See
     {{:https://developer.apple.com/documentation/metal/mtlevent} MTLEvent}. *)
 module Event : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val get_device : t -> Device.t
   val set_label : t -> string -> unit
@@ -665,7 +715,9 @@ end
 (** A container for encoded commands that the GPU executes. See
     {{:https://developer.apple.com/documentation/metal/mtlcommandbuffer} MTLCommandBuffer}. *)
 module CommandBuffer : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val set_label : t -> string -> unit
   val get_label : t -> string
@@ -703,8 +755,8 @@ module CommandBuffer : sig
        MTLCommandBufferStatus}. *)
   module Status : sig
     type t = NotEnqueued | Enqueued | Committed | Scheduled | Completed | Error
-    [@@deriving sexp_of]
 
+    val sexp_of_t : t -> Sexplib0.Sexp.t
     val from_ulong : Unsigned.ulong -> t
     val to_ulong : t -> Unsigned.ulong
   end
@@ -729,7 +781,9 @@ end
 (** Base protocol for objects that encode commands into a command buffer. See
     {{:https://developer.apple.com/documentation/metal/mtlcommandencoder} MTLCommandEncoder}. *)
 module CommandEncoder : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val set_label : t -> string -> unit
   val get_label : t -> string
@@ -743,7 +797,9 @@ end
 (** Usage flags for resources within a command encoder. See
     {{:https://developer.apple.com/documentation/metal/mtlresourceusage} MTLResourceUsage}. *)
 module ResourceUsage : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val read : t
   val write : t
@@ -756,7 +812,9 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlindirectcommandtype}
      MTLIndirectCommandType}. *)
 module IndirectCommandType : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val draw : t
   val draw_indexed : t
@@ -771,7 +829,9 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlindirectcommandbufferdescriptor}
      MTLIndirectCommandBufferDescriptor}. *)
 module IndirectCommandBufferDescriptor : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val create : unit -> t
   val set_command_types : t -> IndirectCommandType.t -> unit
@@ -797,7 +857,9 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlindirectcomputecommand}
      MTLIndirectComputeCommand}. *)
 module IndirectComputeCommand : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val set_compute_pipeline_state : t -> ComputePipelineState.t -> unit
 
@@ -815,7 +877,9 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlindirectcommandbuffer}
      MTLIndirectCommandBuffer}. *)
 module IndirectCommandBuffer : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val on_device_with_descriptor :
     Device.t ->
@@ -838,7 +902,9 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlcomputecommandencoder}
      MTLComputeCommandEncoder}. *)
 module ComputeCommandEncoder : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val set_label : t -> string -> unit
   val get_label : t -> string
@@ -847,8 +913,9 @@ module ComputeCommandEncoder : sig
   (** Possible ways to dispatch commands within an encoder. See
       {{:https://developer.apple.com/documentation/metal/mtldispatchtype} MTLDispatchType}. *)
   module DispatchType : sig
-    type t = Serial | Concurrent [@@deriving sexp_of]
+    type t = Serial | Concurrent
 
+    val sexp_of_t : t -> Sexplib0.Sexp.t
     val to_ulong : t -> Unsigned.ulong
   end
 
@@ -888,7 +955,9 @@ end
 (** An object used for fine-grained resource synchronization within a command encoder. See
     {{:https://developer.apple.com/documentation/metal/mtlfence} MTLFence}. *)
 module Fence : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val on_device : Device.t -> t
   val get_device : t -> Device.t
@@ -900,7 +969,9 @@ end
     {{:https://developer.apple.com/documentation/metal/mtlblitcommandencoder} MTLBlitCommandEncoder}.
 *)
 module BlitCommandEncoder : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   val set_label : t -> string -> unit
   val get_label : t -> string
@@ -936,7 +1007,9 @@ end
     processes. See
     {{:https://developer.apple.com/documentation/metal/mtlsharedevent} MTLSharedEvent}. *)
 module SharedEvent : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 
   (** Provides a simple interface for handling MTLSharedEvent notifications. See
       {{:https://developer.apple.com/documentation/metal/mtlsharedeventlistener?language=objc}
@@ -1000,5 +1073,7 @@ end
 (** Represents a dynamically linkable Metal library. Bindings are complex and omitted for now. See
     {{:https://developer.apple.com/documentation/metal/mtldynamiclibrary} MTLDynamicLibrary}. *)
 module DynamicLibrary : sig
-  type t [@@deriving sexp_of]
+  type t
+
+  val sexp_of_t : t -> Sexplib0.Sexp.t
 end

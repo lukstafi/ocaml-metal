@@ -1,27 +1,27 @@
 (test
  (name basic_tests)
  (deps basic_tests.expected)
- (libraries base stdio metal ctypes.foreign))
+ (libraries metal ctypes.foreign))
 
 (test
  (name error_tests)
  (deps error_tests.expected)
- (libraries base stdio metal ctypes.foreign))
+ (libraries metal ctypes.foreign))
 
 (test
  (name advanced_tests)
  (deps advanced_tests.expected)
- (libraries base stdio metal ctypes.foreign))
+ (libraries metal ctypes.foreign))
 
 (test
  (name coverage_tests)
  (deps coverage_tests.expected)
- (libraries base stdio metal ctypes.foreign))
+ (libraries metal ctypes.foreign))
 
 (test
  (name saxpy)
  (deps saxpy.expected)
- (libraries base stdio metal ctypes.foreign bigarray))
+ (libraries metal ctypes.foreign bigarray))
 
 ; This test fails if run on CI "paravirtual machine".
 
@@ -30,7 +30,7 @@
  (enabled_if
   (= %{env:OCAML_METAL_SKIP_ICB_TEST=false} false))
  (deps advanced_tests_icb.expected)
- (libraries base stdio metal ctypes.foreign))
+ (libraries metal ctypes.foreign))
 
 ; CI GPU family does not support MSL 3.2 / logging.
 
@@ -39,4 +39,4 @@
  (enabled_if
   (= %{env:OCAML_METAL_SKIP_LOGGING_TEST=false} false))
  (deps logging_tests.expected)
- (libraries base stdio metal ctypes.foreign))
+ (libraries metal ctypes.foreign))
