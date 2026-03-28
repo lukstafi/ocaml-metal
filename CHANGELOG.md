@@ -1,3 +1,18 @@
+## [0.1.1.1] -- 2025-07-18
+
+### Changed
+
+- Removed dependency on `camlkit-base`; vendored `camlkit-base.Runtime` and simplified it (removed static configuration).
+- Removed dependency on `ppx_sexp_conv` and its large JaneStreet dependency cone (`base`, `ppx_jane`, etc.). Still depends on `sexplib0`.
+
+### Added
+
+- `send_msg_suspended` in vendored Runtime code.
+
+### Fixed
+
+- Upstreamed fixes/changes to `Runtime.Block`.
+
 ## [0.1.0] -- 2025-05-06
 
 ### Added
