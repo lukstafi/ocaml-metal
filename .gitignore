@@ -27,3 +27,6 @@ setup.log
 
 # Local OPAM switch
 _opam/
+_build_review/
+_build_review_skip/
+_build_review_round3/
