@@ -62,8 +62,6 @@
 
 (executable
  (name advanced_tests_icb)
- (enabled_if
-  (= %{env:OCAML_METAL_SKIP_ICB_TEST=false} false))
  (libraries metal ctypes.foreign))
 
 (rule
@@ -80,8 +78,6 @@
 
 (executable
  (name logging_tests)
- (enabled_if
-  (= %{env:OCAML_METAL_SKIP_LOGGING_TEST=false} false))
  (libraries metal ctypes.foreign))
 
 (rule
