@@ -1,0 +1,1 @@
+test/logging_tests.ml: Buffer CommandBuffer CommandQueue CommandQueueDescriptor CompileOptions ComputeCommandEncoder ComputePipelineState Ctypes Device Library List LogLevel LogState LogStateDescriptor Metal Printf ResourceOptions String

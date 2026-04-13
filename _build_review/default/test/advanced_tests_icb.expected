@@ -1,0 +1,7 @@
+Pipeline descriptor: ((label "") (function (name double_values type Kernel))
+                      (support_icb true))
+Pipeline supports indirect command buffers: true
+buffer[0] = 2
+buffer[1] = 4
+buffer[2] = 6
+buffer[3] = 8

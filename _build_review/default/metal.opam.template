@@ -1,0 +1,18 @@
+available: os = "macos"
+build: [
+  ["dune" "subst"] {dev}
+  [
+    "env"
+    "OCAML_METAL_SKIP_ICB_TEST=true" {with-test}
+    "OCAML_METAL_SKIP_LOGGING_TEST=true" {with-test}
+    "dune"
+    "build"
+    "-p"
+    name
+    "-j"
+    jobs
+    "@install"
+    "@runtest" {with-test}
+    "@doc" {with-doc}
+  ]
+]
