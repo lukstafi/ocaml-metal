@@ -1,91 +1,49 @@
-(executable
+(test
  (name basic_tests)
- (libraries metal ctypes.foreign))
-
-(rule
- (alias runtest)
  (deps basic_tests.expected)
- (action
-  (progn
-   (with-stdout-to basic_tests.output (run ./basic_tests.exe))
-   (diff basic_tests.expected basic_tests.output))))
+ (libraries metal ctypes.foreign)
+ (action (run %{test})))
 
-(executable
+(test
  (name error_tests)
- (libraries metal ctypes.foreign))
-
-(rule
- (alias runtest)
  (deps error_tests.expected)
- (action
-  (progn
-   (with-stdout-to error_tests.output (run ./error_tests.exe))
-   (diff error_tests.expected error_tests.output))))
+ (libraries metal ctypes.foreign)
+ (action (run %{test})))
 
-(executable
+(test
  (name advanced_tests)
- (libraries metal ctypes.foreign))
-
-(rule
- (alias runtest)
  (deps advanced_tests.expected)
- (action
-  (progn
-   (with-stdout-to advanced_tests.output (run ./advanced_tests.exe))
-   (diff advanced_tests.expected advanced_tests.output))))
+ (libraries metal ctypes.foreign)
+ (action (run %{test})))
 
-(executable
+(test
  (name coverage_tests)
- (libraries metal ctypes.foreign))
-
-(rule
- (alias runtest)
  (deps coverage_tests.expected)
- (action
-  (progn
-   (with-stdout-to coverage_tests.output (run ./coverage_tests.exe))
-   (diff coverage_tests.expected coverage_tests.output))))
+ (libraries metal ctypes.foreign)
+ (action (run %{test})))
 
-(executable
+(test
  (name saxpy)
- (libraries metal ctypes.foreign bigarray))
-
-(rule
- (alias runtest)
  (deps saxpy.expected)
- (action
-  (progn
-   (with-stdout-to saxpy.output (run ./saxpy.exe))
-   (diff saxpy.expected saxpy.output))))
+ (libraries metal ctypes.foreign bigarray)
+ (action (run %{test})))
 
 ; This test fails if run on CI "paravirtual machine".
 
-(executable
+(test
  (name advanced_tests_icb)
- (libraries metal ctypes.foreign))
-
-(rule
- (alias runtest)
  (enabled_if
   (= %{env:OCAML_METAL_SKIP_ICB_TEST=false} false))
  (deps advanced_tests_icb.expected)
- (action
-  (progn
-   (with-stdout-to advanced_tests_icb.output (run ./advanced_tests_icb.exe))
-   (diff advanced_tests_icb.expected advanced_tests_icb.output))))
+ (libraries metal ctypes.foreign)
+ (action (run %{test})))
 
 ; CI GPU family does not support MSL 3.2 / logging.
 
-(executable
+(test
  (name logging_tests)
- (libraries metal ctypes.foreign))
-
-(rule
- (alias runtest)
  (enabled_if
   (= %{env:OCAML_METAL_SKIP_LOGGING_TEST=false} false))
  (deps logging_tests.expected)
- (action
-  (progn
-   (with-stdout-to logging_tests.output (run ./logging_tests.exe))
-   (diff logging_tests.expected logging_tests.output))))
+ (libraries metal ctypes.foreign)
+ (action (run %{test})))
