@@ -1323,10 +1323,9 @@ module LogState = struct
     = "ocaml_metal_log_buffer_drain"
 
   let add_buffered_log_handler (self : t) : log_buffer =
-    let buffer = install_log_buffer (raw_address_of_ptr (to_voidp self.id)) in
-    (* The buffer outlives the OCaml values holding this log state's lifetime chain. *)
-    self.lifetime <- Lifetime (self.lifetime, buffer);
-    buffer
+    (* Not kept in [self.lifetime]: the caller's handle owns the buffered entries, and once it is
+       collected the handler drops what arrives (the native handler needs nothing from OCaml). *)
+    install_log_buffer (raw_address_of_ptr (to_voidp self.id))
 
   let drain_log_buffer (buffer : log_buffer) : log_entry list * int =
     let entries, dropped = drain_log_buffer_raw buffer in

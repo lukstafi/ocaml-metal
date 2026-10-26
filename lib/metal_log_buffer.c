@@ -153,41 +153,68 @@ static value option_of_cstring(const char *s) {
   CAMLreturn(some);
 }
 
+/* A detached batch, owned by a custom block while it is converted: an allocation that raises
+   [Out_of_memory] mid-conversion leaves the batch to this block's finalizer instead of leaking it. */
+struct batch {
+  struct log_entry *entries;
+  size_t len;
+};
+
+#define Batch_val(v) ((struct batch *)Data_custom_val(v))
+
+static void free_batch(struct batch *b) {
+  for (size_t i = 0; i < b->len; i++) free_entry(&b->entries[i]);
+  free(b->entries);
+  b->entries = NULL;
+  b->len = 0;
+}
+
+static void finalize_batch(value v) { free_batch(Batch_val(v)); }
+
+static struct custom_operations batch_ops = {
+    "ocaml-metal.log_batch",    finalize_batch,           custom_compare_default,
+    custom_hash_default,        custom_serialize_default, custom_deserialize_default,
+    custom_compare_ext_default, custom_fixed_length_default};
+
 /* [drain handle] returns [(entries, dropped)]: the entries buffered since the last drain, oldest
    first, as [(sub_system, category, level, message)] tuples, and how many were dropped. */
 value ocaml_metal_log_buffer_drain(value handle) {
   CAMLparam1(handle);
   CAMLlocal5(list, cell, tuple, field, result);
+  CAMLlocal1(owner);
   struct log_buffer *buf = Buffer_val(handle);
-  struct log_entry *entries;
-  size_t len, dropped;
+  size_t dropped;
+  /* The owner is allocated before anything is detached, so no allocation failure can strand the
+     batch. */
+  owner = caml_alloc_custom(&batch_ops, sizeof(struct batch), 0, 1);
+  Batch_val(owner)->entries = NULL;
+  Batch_val(owner)->len = 0;
   /* Detach the batch under the lock; build OCaml values outside it (allocation may run the GC). */
   pthread_mutex_lock(&buf->mutex);
-  entries = buf->entries;
-  len = buf->len;
+  Batch_val(owner)->entries = buf->entries;
+  Batch_val(owner)->len = buf->len;
   dropped = buf->dropped;
   buf->entries = NULL;
   buf->len = buf->cap = 0;
   buf->dropped = 0;
   pthread_mutex_unlock(&buf->mutex);
   list = Val_emptylist;
-  for (size_t k = len; k > 0; k--) {
-    struct log_entry *e = &entries[k - 1];
+  for (size_t k = Batch_val(owner)->len; k > 0; k--) {
+    /* Re-read through [owner] each time: a GC may move the custom block. */
     tuple = caml_alloc_tuple(4);
-    field = option_of_cstring(e->sub_system);
+    field = option_of_cstring(Batch_val(owner)->entries[k - 1].sub_system);
     Store_field(tuple, 0, field);
-    field = option_of_cstring(e->category);
+    field = option_of_cstring(Batch_val(owner)->entries[k - 1].category);
     Store_field(tuple, 1, field);
-    Store_field(tuple, 2, Val_long(e->level));
-    field = caml_copy_string(e->message);
+    Store_field(tuple, 2, Val_long(Batch_val(owner)->entries[k - 1].level));
+    field = caml_copy_string(Batch_val(owner)->entries[k - 1].message);
     Store_field(tuple, 3, field);
     cell = caml_alloc_small(2, Tag_cons);
     Field(cell, 0) = tuple;
     Field(cell, 1) = list;
     list = cell;
   }
-  for (size_t i = 0; i < len; i++) free_entry(&entries[i]);
-  free(entries);
+  free_batch(Batch_val(owner));
   result = caml_alloc_tuple(2);
   Store_field(result, 0, list);
   Store_field(result, 1, Val_long(dropped));
