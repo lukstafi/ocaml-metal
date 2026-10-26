@@ -4,9 +4,9 @@
 
 - `LogState.add_buffered_log_handler` and `LogState.drain_log_buffer`: a native (C) `MTLLogState` handler that copies shader log messages into a mutex-protected buffer, drained on the host thread. No OCaml code runs on Metal's dispatch threads (ahrefs/ocannl#1594).
 
-### Deprecated
+### Changed
 
-- `LogState.add_log_handler`: it runs the OCaml handler on a Metal dispatch thread.
+- `LogState.add_log_handler`'s documentation steers callers to `add_buffered_log_handler`: it runs the OCaml handler on a Metal dispatch thread. It is deliberately not `[@@ocaml.deprecated]`, so clients that build with alerts as errors keep compiling.
 
 ### Fixed
 

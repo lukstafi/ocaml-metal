@@ -1341,7 +1341,7 @@ module LogState = struct
            entries),
       dropped )
 
-  (* Deprecated: the handler runs [handler] on a Metal dispatch thread (see the interface). The
+  (* Discouraged: the handler runs [handler] on a Metal dispatch thread (see the interface). The
      block struct is kept in [lifetime]: Metal's [Block_copy] of a global-flagged block keeps the
      pointer it was given, so the struct must not be collected while the log state lives. *)
   let add_log_handler (self : t)
