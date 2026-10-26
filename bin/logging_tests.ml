@@ -53,29 +53,23 @@ let () =
   (* Create log state with the descriptor *)
   let log_state = LogState.on_device_with_descriptor device log_desc in
 
-  (* Create mutable reference to store captured logs *)
-  let captured_logs = ref [] in
-
-  (* Add log handler to process and store log messages *)
-  LogState.add_log_handler log_state (fun ~sub_system ~category ~level ~message ->
-      let level_str =
-        match level with
-        | LogLevel.Debug -> "Debug"
-        | LogLevel.Info -> "Info"
-        | LogLevel.Notice -> "Notice"
-        | LogLevel.Error -> "Error"
-        | LogLevel.Fault -> "Fault"
-        | LogLevel.Undefined -> "Undefined"
-      in
-
-      let sub_system_str = match sub_system with Some s -> s | None -> "<none>" in
-
-      let category_str = match category with Some c -> c | None -> "<none>" in
-
-      let log_entry =
-        Printf.sprintf "[%s] %s/%s: %s" level_str sub_system_str category_str message
-      in
-      captured_logs := log_entry :: !captured_logs);
+  (* Capture log messages C-side: Metal calls log handlers on its own threads, so the handler
+     must not run OCaml code; the host drains the buffer after the command buffer completes. *)
+  let log_buffer = LogState.add_buffered_log_handler log_state in
+  let format_entry { LogState.sub_system; category; level; message } =
+    let level_str =
+      match level with
+      | LogLevel.Debug -> "Debug"
+      | LogLevel.Info -> "Info"
+      | LogLevel.Notice -> "Notice"
+      | LogLevel.Error -> "Error"
+      | LogLevel.Fault -> "Fault"
+      | LogLevel.Undefined -> "Undefined"
+    in
+    let sub_system_str = match sub_system with Some s -> s | None -> "<none>" in
+    let category_str = match category with Some c -> c | None -> "<none>" in
+    Printf.sprintf "[%s] %s/%s: %s" level_str sub_system_str category_str message
+  in
 
   (* Create command queue with log state *)
   let queue_desc = CommandQueueDescriptor.create () in
@@ -119,6 +113,8 @@ let () =
     Printf.printf "Buffer[%d] = %f (expected %f)\n" i value expected
   done;
 
-  (* Print captured logs (in reverse order to get chronological order) *)
+  (* Print captured logs, in delivery order *)
+  let entries, dropped = LogState.drain_log_buffer log_buffer in
   Printf.printf "\nCaptured shader logs:\n";
-  List.rev !captured_logs |> List.iter (Printf.printf "%s\n")
+  List.iter (fun e -> Printf.printf "%s\n" (format_entry e)) entries;
+  Printf.printf "Dropped: %d\n" dropped

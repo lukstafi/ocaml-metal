@@ -632,6 +632,32 @@ module LogState : sig
       {{:https://developer.apple.com/documentation/metal/mtldevice/4379071-newlogstatewithdescriptor}
        newLogStateWithDescriptor:error:}. *)
 
+  type log_entry = {
+    sub_system : string option;
+    category : string option;
+    level : LogLevel.t;
+    message : string;
+  }
+  (** One shader log message, as Metal delivered it. *)
+
+  type log_buffer
+  (** Messages captured by a native handler, waiting for {!drain_log_buffer}. *)
+
+  val add_buffered_log_handler : t -> log_buffer
+  (** Adds a native handler block (see
+      {{:https://developer.apple.com/documentation/metal/mtllogstate/4379067-addloghandler}
+       addLogHandler:}) that copies every message into a C-side buffer, and returns that buffer.
+      Metal calls log handlers on its own dispatch threads; this handler never runs OCaml code there,
+      so it is safe whatever the host thread is doing. Read the messages from the host with
+      {!drain_log_buffer}, typically after waiting for the command buffers that log. The buffer is
+      unbounded between drains. Once the returned handle is collected, later messages are dropped. *)
+
+  val drain_log_buffer : log_buffer -> log_entry list * int
+  (** Removes and returns the messages buffered since the previous drain, in the order Metal
+      delivered them, together with the number of messages dropped in that span because memory
+      could not be allocated for them. Thread-safe with respect to Metal's handler calls: a message
+      delivered during a drain appears in this drain or in the next one, exactly once. *)
+
   val add_log_handler :
     t ->
     (sub_system:string option ->
@@ -640,9 +666,13 @@ module LogState : sig
     message:string ->
     unit) ->
     unit
+  [@@ocaml.deprecated
+    "Runs the OCaml handler on a Metal dispatch thread, which can stall behind (or deadlock with) \
+     a host thread blocked in a Metal call; use add_buffered_log_handler and drain_log_buffer."]
   (** Adds a handler block to process log messages. See
       {{:https://developer.apple.com/documentation/metal/mtllogstate/4379067-addloghandler}
-       addLogHandler:}. *)
+       addLogHandler:}. The OCaml handler runs on a thread Metal owns, entering the OCaml runtime
+      from there; prefer {!add_buffered_log_handler}. *)
 end
 
 (** Configuration for creating command queues. See

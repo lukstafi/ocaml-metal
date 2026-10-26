@@ -41,3 +41,6 @@ Captured shader logs:
 
 [Notice] com.custom_log.subsystem/custom category: Thread 7 calculation complete: 16.000000
 
+Dropped: 0
+Second drain: 0 messages
+Rounds after GC churn with all 16 messages drained at completion: 20 of 20

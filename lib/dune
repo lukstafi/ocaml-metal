@@ -2,4 +2,9 @@
  (public_name metal)
  (flags :standard -ccopt "-framework CoreGraphics" -ccopt "-framework Metal")
  (modules metal)
+ (foreign_stubs
+  (language c)
+  (names metal_log_buffer)
+  (flags :standard -fblocks))
+ (c_library_flags -lobjc)
  (libraries sexplib0 runtime))
