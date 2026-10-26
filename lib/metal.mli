@@ -666,13 +666,14 @@ module LogState : sig
     message:string ->
     unit) ->
     unit
-  [@@ocaml.deprecated
-    "Runs the OCaml handler on a Metal dispatch thread, which can stall behind (or deadlock with) \
-     a host thread blocked in a Metal call; use add_buffered_log_handler and drain_log_buffer."]
   (** Adds a handler block to process log messages. See
       {{:https://developer.apple.com/documentation/metal/mtllogstate/4379067-addloghandler}
-       addLogHandler:}. The OCaml handler runs on a thread Metal owns, entering the OCaml runtime
-      from there; prefer {!add_buffered_log_handler}. *)
+       addLogHandler:}.
+
+      {b Prefer {!add_buffered_log_handler}.} The OCaml handler runs on a thread Metal owns,
+      entering the OCaml runtime from there, so it can stall behind (or deadlock with) a host thread
+      blocked in a Metal call. It is not marked deprecated so that a client built with alerts as
+      errors keeps compiling against this release. *)
 end
 
 (** Configuration for creating command queues. See
