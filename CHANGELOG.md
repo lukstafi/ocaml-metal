@@ -1,3 +1,17 @@
+## [Unreleased]
+
+### Added
+
+- `LogState.add_buffered_log_handler` and `LogState.drain_log_buffer`: a native (C) `MTLLogState` handler that copies shader log messages into a mutex-protected buffer, drained on the host thread. No OCaml code runs on Metal's dispatch threads (ahrefs/ocannl#1594).
+
+### Deprecated
+
+- `LogState.add_log_handler`: it runs the OCaml handler on a Metal dispatch thread.
+
+### Fixed
+
+- `LogState.add_log_handler` kept only its OCaml closure alive, not the ctypes block literal Metal holds a pointer to (Metal's `Block_copy` of a global-flagged block keeps the original pointer). Once the GC reclaimed the struct, the next log message crashed the process (SEGV or bus error, 6 of 6 runs under GC churn). The block is now kept in the log state's lifetime.
+
 ## [0.1.1.1] -- 2025-07-18
 
 ### Changed

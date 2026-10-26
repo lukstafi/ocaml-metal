@@ -1307,10 +1307,38 @@ module LogState = struct
     { id = gc ~select id; lifetime = Lifetime descriptor }
   (* Keep descriptor alive *)
 
-  (* Note: Handling the lifetime of the OCaml closure requires careful consideration. For now, this
-     binding assumes the block might be copied/retained by Metal, or that the LogState object itself
-     keeps the necessary context alive. If issues arise, the lifetime management here might need
-     refinement. *)
+  type log_entry = {
+    sub_system : string option;
+    category : string option;
+    level : LogLevel.t;
+    message : string;
+  }
+
+  type log_buffer
+
+  external install_log_buffer : nativeint -> log_buffer = "ocaml_metal_log_buffer_install"
+
+  external drain_log_buffer_raw :
+    log_buffer -> (string option * string option * int * string) list * int
+    = "ocaml_metal_log_buffer_drain"
+
+  let add_buffered_log_handler (self : t) : log_buffer =
+    let buffer = install_log_buffer (raw_address_of_ptr (to_voidp self.id)) in
+    (* The buffer outlives the OCaml values holding this log state's lifetime chain. *)
+    self.lifetime <- Lifetime (self.lifetime, buffer);
+    buffer
+
+  let drain_log_buffer (buffer : log_buffer) : log_entry list * int =
+    let entries, dropped = drain_log_buffer_raw buffer in
+    ( List.map
+        (fun (sub_system, category, level, message) ->
+          { sub_system; category; level = LogLevel.from_long (Signed.Long.of_int level); message })
+        entries,
+      dropped )
+
+  (* Deprecated: the handler runs [handler] on a Metal dispatch thread (see the interface). The
+     block struct is kept in [lifetime]: Metal's [Block_copy] of a global-flagged block keeps the
+     pointer it was given, so the struct must not be collected while the log state lives. *)
   let add_log_handler (self : t)
       (handler :
         sub_system:string option ->
@@ -1337,8 +1365,8 @@ module LogState = struct
         ~args:Runtime.Objc_type.[ id; id; long; id ]
         ~return:Runtime.Objc_type.void
     in
-    (* Store the closure in the lifetime field to keep it alive *)
-    self.lifetime <- Lifetime (self.lifetime, block_impl);
+    (* Store the closure and the block struct in the lifetime field to keep them alive *)
+    self.lifetime <- Lifetime (self.lifetime, (block_impl, block_ptr));
     msg_send ~self:self.id ~select:"addLogHandler:" ~typ:(ptr void @-> returning void) block_ptr
 
   let sexp_of_t _t = Sexplib0.Sexp.message "<MTLLogState>" [] (* No readily available properties *)

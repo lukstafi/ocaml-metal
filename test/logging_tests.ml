@@ -52,29 +52,23 @@ let test_metal_shader_logging device =
   (* Create log state with the descriptor *)
   let log_state = LogState.on_device_with_descriptor device log_desc in
 
-  (* Create mutable reference to store captured logs *)
-  let captured_logs = ref [] in
-
-  (* Add log handler to process and store log messages *)
-  LogState.add_log_handler log_state (fun ~sub_system ~category ~level ~message ->
-      let level_str =
-        match level with
-        | LogLevel.Debug -> "Debug"
-        | LogLevel.Info -> "Info"
-        | LogLevel.Notice -> "Notice"
-        | LogLevel.Error -> "Error"
-        | LogLevel.Fault -> "Fault"
-        | LogLevel.Undefined -> "Undefined"
-      in
-
-      let sub_system_str = match sub_system with Some s -> s | None -> "<none>" in
-
-      let category_str = match category with Some c -> c | None -> "<none>" in
-
-      let log_entry =
-        Printf.sprintf "[%s] %s/%s: %s" level_str sub_system_str category_str message
-      in
-      captured_logs := log_entry :: !captured_logs);
+  (* Capture log messages C-side: Metal calls log handlers on its own threads, so the handler
+     must not run OCaml code; the host drains the buffer after the command buffer completes. *)
+  let log_buffer = LogState.add_buffered_log_handler log_state in
+  let format_entry { LogState.sub_system; category; level; message } =
+    let level_str =
+      match level with
+      | LogLevel.Debug -> "Debug"
+      | LogLevel.Info -> "Info"
+      | LogLevel.Notice -> "Notice"
+      | LogLevel.Error -> "Error"
+      | LogLevel.Fault -> "Fault"
+      | LogLevel.Undefined -> "Undefined"
+    in
+    let sub_system_str = match sub_system with Some s -> s | None -> "<none>" in
+    let category_str = match category with Some c -> c | None -> "<none>" in
+    Printf.sprintf "[%s] %s/%s: %s" level_str sub_system_str category_str message
+  in
 
   (* Create command queue with log state *)
   let queue_desc = CommandQueueDescriptor.create () in
@@ -118,9 +112,42 @@ let test_metal_shader_logging device =
     Printf.printf "Buffer[%d] = %f (expected %f)\n" i value expected
   done;
 
-  (* Print captured logs (in reverse order to get chronological order) *)
+  (* Print captured logs, in delivery order *)
+  let entries, dropped = LogState.drain_log_buffer log_buffer in
   Printf.printf "\nCaptured shader logs:\n";
-  List.rev !captured_logs |> List.iter (Printf.printf "%s\n")
+  List.iter (fun e -> Printf.printf "%s\n" (format_entry e)) entries;
+  Printf.printf "Dropped: %d\n" dropped;
+  (* A second drain finds nothing: the first one took every message. *)
+  let again, _ = LogState.drain_log_buffer log_buffer in
+  Printf.printf "Second drain: %d messages\n" (List.length again);
+  (* Further rounds, each after a full major GC and allocation churn: the handler Metal holds must
+     not depend on anything the OCaml GC can reclaim. Each round's every message is in the drain
+     that follows its command buffer's completion. *)
+  let expected = 2 * buffer_size in
+  let rounds = 20 in
+  let complete = ref 0 in
+  for _ = 1 to rounds do
+    Gc.full_major ();
+    ignore (Sys.opaque_identity (List.init 100_000 (fun i -> Bytes.create (i mod 64))));
+    Gc.compact ();
+    let cmd_buffer = CommandBuffer.on_queue queue in
+    let compute_encoder = ComputeCommandEncoder.on_buffer cmd_buffer in
+    ComputeCommandEncoder.set_compute_pipeline_state compute_encoder pipeline_state;
+    ComputeCommandEncoder.set_buffer compute_encoder ~index:0 buffer;
+    ComputeCommandEncoder.dispatch_threadgroups compute_encoder
+      ~threadgroups_per_grid:{ width = buffer_size / 4; height = 1; depth = 1 }
+      ~threads_per_threadgroup:{ width = 4; height = 1; depth = 1 };
+    ComputeCommandEncoder.end_encoding compute_encoder;
+    CommandBuffer.commit cmd_buffer;
+    CommandBuffer.wait_until_completed cmd_buffer;
+    let entries, dropped = LogState.drain_log_buffer log_buffer in
+    if List.length entries = expected && dropped = 0 then incr complete
+    else
+      Printf.eprintf "round delivered %d of %d messages, %d dropped\n%!" (List.length entries)
+        expected dropped
+  done;
+  Printf.printf "Rounds after GC churn with all %d messages drained at completion: %d of %d\n"
+    expected !complete rounds
 
 let () =
   let device = Device.create_system_default () in
