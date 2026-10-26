@@ -1325,14 +1325,20 @@ module LogState = struct
   let add_buffered_log_handler (self : t) : log_buffer =
     (* Not kept in [self.lifetime]: the caller's handle owns the buffered entries, and once it is
        collected the handler drops what arrives (the native handler needs nothing from OCaml). *)
-    install_log_buffer (raw_address_of_ptr (to_voidp self.id))
+    let buffer = install_log_buffer (raw_address_of_ptr (to_voidp self.id)) in
+    (* The stub receives only the address: keep [self], whose finalizer releases the log state,
+       reachable until the stub has registered the handler (its allocation can run the GC). *)
+    ignore (Sys.opaque_identity self);
+    buffer
 
   let drain_log_buffer (buffer : log_buffer) : log_entry list * int =
     let entries, dropped = drain_log_buffer_raw buffer in
-    ( List.map
-        (fun (sub_system, category, level, message) ->
-          { sub_system; category; level = LogLevel.from_long (Signed.Long.of_int level); message })
-        entries,
+    (* [rev_map] twice: stack-safe on every supported OCaml, for an unbounded batch. *)
+    ( List.rev
+        (List.rev_map
+           (fun (sub_system, category, level, message) ->
+             { sub_system; category; level = LogLevel.from_long (Signed.Long.of_int level); message })
+           entries),
       dropped )
 
   (* Deprecated: the handler runs [handler] on a Metal dispatch thread (see the interface). The
