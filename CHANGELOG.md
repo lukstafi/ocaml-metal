@@ -10,6 +10,8 @@
 
 ### Fixed
 
+- `SharedEvent.wait_until_signaled_value` releases the OCaml runtime lock while waiting, allowing other OCaml threads and stop-the-world GC sections to proceed (ahrefs/ocannl#2090).
+
 - `LogState.add_log_handler` kept only its OCaml closure alive, not the ctypes block literal Metal holds a pointer to (Metal's `Block_copy` of a global-flagged block keeps the original pointer). Once the GC reclaimed the struct, the next log message crashed the process (SEGV or bus error, 6 of 6 runs under GC churn). The block is now kept in the log state's lifetime.
 
 ## [0.1.1.1] -- 2025-07-18

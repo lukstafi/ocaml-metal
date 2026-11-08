@@ -1880,7 +1880,7 @@ module SharedEvent = struct
     gc ~select handle
 
   let wait_until_signaled_value (self : t) ~value ~timeout_ms : bool =
-    msg_send ~self:self.id ~select:"waitUntilSignaledValue:timeoutMS:"
+    msg_send_suspended ~self:self.id ~select:"waitUntilSignaledValue:timeoutMS:"
       ~typ:(ullong @-> ullong @-> returning bool)
       value timeout_ms
 
