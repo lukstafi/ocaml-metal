@@ -89,3 +89,17 @@
   (progn
    (with-stdout-to logging_tests.output (run %{exe:logging_tests.exe}))
    (diff logging_tests.expected logging_tests.output))))
+
+(executable
+ (name shared_event_wait)
+ (libraries metal threads))
+
+(rule
+ (alias runtest-shared_event_wait)
+ (action
+  (run %{exe:shared_event_wait.exe})))
+
+(alias
+ (name runtest)
+ (deps
+  (alias runtest-shared_event_wait)))
